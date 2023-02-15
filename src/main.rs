@@ -1,77 +1,47 @@
-use num::pow;
+type Value = f64;
 
 #[derive(Debug)]
-enum AST {
+enum AST<'a> {
     Value {
-        value: f64,
+        value: Value,
     },
     Negate {
-        value: Box<AST>,
+        value: &'a AST<'a>,
     },
-    //Exp { value: Box<AST> },
     Add {
-        left_value: Box<AST>,
-        right_value: Box<AST>,
-    },
-    Multiply {
-        left_value: Box<AST>,
-        right_value: Box<AST>,
+        left_value: &'a AST<'a>,
+        right_value: &'a AST<'a>,
     },
 }
 
-impl AST {
-    fn new(value: f64) -> Box<AST> {
+impl<'a> AST<'a> {
+    fn new(value: Value) -> Box<AST<'a>> {
         Box::new(AST::Value { value })
     }
-
-    fn negate(value: Box<AST>) -> Box<AST> {
-        Box::new(AST::Negate { value })
+    
+    fn negate(&'a self) -> Box<AST<'a>> {
+        Box::new(AST::Negate { value: self })
     }
-
-    //fn exp(value: Box<AST>) -> Box<AST> {
-    //    Box::new(AST::Exp { value })
-    //}
-
-    fn add(left_value: Box<AST>, right_value: Box<AST>) -> Box<AST> {
-        Box::new(AST::Add {
-            left_value,
-            right_value,
-        })
+    
+    fn add(&'a self, value: &'a AST) -> Box<AST<'a>> {
+        Box::new(AST::Add { left_value: self, right_value: value })
     }
-
-    fn subtract(left_value: Box<AST>, right_value: Box<AST>) -> Box<AST> {
-        AST::add(left_value, AST::negate(right_value))
-    }
-
-    fn multiply(left_value: Box<AST>, right_value: Box<AST>) -> Box<AST> {
-        Box::new(AST::Multiply {
-            left_value,
-            right_value,
-        })
-    }
-
-    fn execute(&self) -> f64 {
+    
+    fn execute_cpu(&self) -> Value {
         match self {
             AST::Value { value } => *value,
-            AST::Negate { value } => -value.execute(),
-            AST::Add {
-                left_value,
-                right_value,
-            } => left_value.execute() + right_value.execute(),
-            AST::Multiply {
-                left_value,
-                right_value,
-            } => left_value.execute() * right_value.execute(),
+            AST::Negate { value } => -value.execute_cpu(),
+            AST::Add { left_value, right_value } => left_value.execute_cpu() + right_value.execute_cpu(),
         }
     }
 }
 
 fn main() {
-    let ast = AST::multiply(
-        AST::add(AST::negate(AST::new(5.0)), AST::new(10.0)),
-        AST::new(2.0),
-    );
+    let temp = &AST::new(2.0);
+    let ast = &AST::new(5.0);
+    let ast = ast.negate();
+    let ast = ast.add(temp);
 
     println!("{:?}", ast);
-    println!("{:?}", ast.execute());
+    println!("{:?}", ast.execute_cpu());
 }
