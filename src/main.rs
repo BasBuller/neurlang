@@ -30,13 +30,12 @@ impl<'a, T: ExecuteAST> AST<T> {
         })
     }
     
-    // fn subtract(&self, value: &AST<'a, T>) -> Box<AST<'a, T>> {
-    //     let right_value = &value.negate();
-    //     Box::new(AST::Add {
-    //         left_value: self,
-    //         right_value: right_value,
-    //     })
-    // }
+    fn subtract(self: Rc<Self>, value: Rc<AST<T>>) -> Rc<AST<T>> {
+        Rc::new(AST::Add {
+            left_value: self,
+            right_value: value.negate(),
+        })
+    }
 
     fn execute(&self) -> T {
         match self {
