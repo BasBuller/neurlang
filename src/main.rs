@@ -11,8 +11,10 @@ enum ReduceOp {
     Max
 }
 
+type Shape = Vec<usize>;
+
 #[derive(Debug)]
-enum AST<T: ExecuteAST> {
+enum ASTOp<T: ExecuteAST> {
     // Leaf
     Value {
         value: T,
@@ -20,58 +22,58 @@ enum AST<T: ExecuteAST> {
 
     // Unary
     Negate {
-        value: Rc<AST<T>>,
+        value: Rc<ASTOp<T>>,
     },
     Exponential {
-        value: Rc<AST<T>>,
+        value: Rc<ASTOp<T>>,
     },
     Log {
-        value: Rc<AST<T>>,
+        value: Rc<ASTOp<T>>,
     },
 
     // Binary
     Add {
-        left_value: Rc<AST<T>>,
-        right_value: Rc<AST<T>>,
+        left_value: Rc<ASTOp<T>>,
+        right_value: Rc<ASTOp<T>>,
     },
 
     // Reduce
     Reduce {
-        value: Rc<AST<T>>,
+        value: Rc<ASTOp<T>>,
         dim: ReduceAxis,
         op: ReduceOp,
     },
 }
 
-impl<'a, T: ExecuteAST> AST<T> {
+impl<'a, T: ExecuteAST> ASTOp<T> {
     // Unary
-    fn negate(self: Rc<Self>) -> Rc<AST<T>> {
-        Rc::new(AST::Negate { value: self })
+    fn negate(self: Rc<Self>) -> Rc<ASTOp<T>> {
+        Rc::new(ASTOp::Negate { value: self })
     }
-    fn exp(self: Rc<Self>) -> Rc<AST<T>> {
-        Rc::new(AST::Exponential { value: self })
+    fn exp(self: Rc<Self>) -> Rc<ASTOp<T>> {
+        Rc::new(ASTOp::Exponential { value: self })
     }
-    fn log(self: Rc<Self>) -> Rc<AST<T>> {
-        Rc::new(AST::Log { value: self })
+    fn log(self: Rc<Self>) -> Rc<ASTOp<T>> {
+        Rc::new(ASTOp::Log { value: self })
     }
 
     // Binary
-    fn add(self: Rc<Self>, value: Rc<AST<T>>) -> Rc<AST<T>> {
-        Rc::new(AST::Add {
+    fn add(self: Rc<Self>, right_value: Rc<ASTOp<T>>) -> Rc<ASTOp<T>> {
+        Rc::new(ASTOp::Add {
             left_value: self,
-            right_value: value,
+            right_value: right_value,
         })
     }
-    fn subtract(self: Rc<Self>, value: Rc<AST<T>>) -> Rc<AST<T>> {
-        Rc::new(AST::Add {
+    fn subtract(self: Rc<Self>, right_value: Rc<ASTOp<T>>) -> Rc<ASTOp<T>> {
+        Rc::new(ASTOp::Add {
             left_value: self,
-            right_value: value.negate(),
+            right_value: right_value.negate(),
         })
     }
 
     // Reduce
-    fn reduce(self: Rc<Self>, dim: ReduceAxis, op: ReduceOp) -> Rc<AST<T>> {
-        Rc::new(AST::Reduce {
+    fn reduce(self: Rc<Self>, dim: ReduceAxis, op: ReduceOp) -> Rc<ASTOp<T>> {
+        Rc::new(ASTOp::Reduce {
             value: self,
             dim: dim,
             op: op,
@@ -79,20 +81,20 @@ impl<'a, T: ExecuteAST> AST<T> {
     }
 
     // Utils
-    fn new(value: T) -> Rc<AST<T>> {
-        Rc::new(AST::Value { value })
+    fn new(value: T) -> Rc<ASTOp<T>> {
+        Rc::new(ASTOp::Value { value })
     }
     fn execute(&self) -> T {
         match self {
-            AST::Value { value } => value.value_v(),
-            AST::Negate { value } => value.execute().negate_v(),
-            AST::Exponential { value } => value.execute().exp_v(),
-            AST::Log { value } => value.execute().log_v(),
-            AST::Add {
+            ASTOp::Value { value } => value.value_v(),
+            ASTOp::Negate { value } => value.execute().negate_v(),
+            ASTOp::Exponential { value } => value.execute().exp_v(),
+            ASTOp::Log { value } => value.execute().log_v(),
+            ASTOp::Add {
                 left_value,
                 right_value,
             } => left_value.execute().add_v(right_value.execute()),
-            AST::Reduce { value, dim, op } => value.execute().reduce(*dim, *op),
+            ASTOp::Reduce { value, dim, op } => value.execute().reduce(*dim, *op),
         }
     }
 }
@@ -160,7 +162,7 @@ impl ExecuteAST for Array<f32, Dim<IxDynImpl>> {
 }
 
 fn main() {
-    let ast = AST::new(5.0).subtract(AST::new(2.0)).add(AST::new(10.0));
+    let ast = ASTOp::new(5.0).subtract(ASTOp::new(2.0)).add(ASTOp::new(10.0));
 
     println!("{:?}", ast);
     println!("{:?}", ast.execute());
