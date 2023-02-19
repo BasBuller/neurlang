@@ -1,32 +1,42 @@
+use std::rc::Rc;
+
 #[derive(Debug)]
-enum AST<'a, T: ExecuteAST> {
+enum AST<T: ExecuteAST> {
     Value {
         value: T,
     },
     Negate {
-        value: &'a AST<'a, T>,
+        value: Rc<AST<T>>,
     },
     Add {
-        left_value: &'a AST<'a, T>,
-        right_value: &'a AST<'a, T>,
+        left_value: Rc<AST<T>>,
+        right_value: Rc<AST<T>>,
     },
 }
 
-impl<'a, T: ExecuteAST> AST<'a, T> {
-    fn new(value: T) -> Box<AST<'a, T>> {
-        Box::new(AST::Value { value })
+impl<'a, T: ExecuteAST> AST<T> {
+    fn new(value: T) -> Rc<AST<T>> {
+        Rc::new(AST::Value { value })
     }
 
-    fn negate(&'a self) -> Box<AST<'a, T>> {
-        Box::new(AST::Negate { value: self })
+    fn negate(self: Rc<Self>) -> Rc<AST<T>> {
+        Rc::new(AST::Negate { value: self })
     }
 
-    fn add(&'a self, value: &'a AST<'a, T>) -> Box<AST<'a, T>> {
-        Box::new(AST::Add {
+    fn add(self: Rc<Self>, value: Rc<AST<T>>) -> Rc<AST<T>> {
+        Rc::new(AST::Add {
             left_value: self,
             right_value: value,
         })
     }
+    
+    // fn subtract(&self, value: &AST<'a, T>) -> Box<AST<'a, T>> {
+    //     let right_value = &value.negate();
+    //     Box::new(AST::Add {
+    //         left_value: self,
+    //         right_value: right_value,
+    //     })
+    // }
 
     fn execute(&self) -> T {
         match self {
@@ -60,10 +70,7 @@ impl ExecuteAST for Value {
 }
 
 fn main() {
-    let temp = &AST::new(2.0);
-    let ast = &AST::new(5.0);
-    let ast = ast.negate();
-    let ast = ast.add(temp);
+    let ast = AST::new(2.0).negate().add(AST::new(5.0));
 
     println!("{:?}", ast);
     println!("{:?}", ast.execute());
