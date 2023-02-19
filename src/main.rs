@@ -1,18 +1,11 @@
+#![allow(dead_code)]
+
 use std::rc::Rc;
+use ndarray::{prelude::*, IxDynImpl};
 
-#[derive(Debug)]
-enum Dim {
-    One,
-    Two,
-    Three,
-    Four,
-    Five,
-    Six,
-    Seven,
-    Eight,
-}
+type ReduceAxis = usize;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 enum ReduceOp {
     Sum,
     Max
@@ -45,7 +38,7 @@ enum AST<T: ExecuteAST> {
     // Reduce
     Reduce {
         value: Rc<AST<T>>,
-        dim: Dim,
+        dim: ReduceAxis,
         op: ReduceOp,
     },
 }
@@ -55,11 +48,9 @@ impl<'a, T: ExecuteAST> AST<T> {
     fn negate(self: Rc<Self>) -> Rc<AST<T>> {
         Rc::new(AST::Negate { value: self })
     }
-
     fn exp(self: Rc<Self>) -> Rc<AST<T>> {
         Rc::new(AST::Exponential { value: self })
     }
-
     fn log(self: Rc<Self>) -> Rc<AST<T>> {
         Rc::new(AST::Log { value: self })
     }
@@ -71,7 +62,6 @@ impl<'a, T: ExecuteAST> AST<T> {
             right_value: value,
         })
     }
-
     fn subtract(self: Rc<Self>, value: Rc<AST<T>>) -> Rc<AST<T>> {
         Rc::new(AST::Add {
             left_value: self,
@@ -80,7 +70,7 @@ impl<'a, T: ExecuteAST> AST<T> {
     }
 
     // Reduce
-    fn reduce(self: Rc<Self>, dim: Dim, op: ReduceOp) -> Rc<AST<T>> {
+    fn reduce(self: Rc<Self>, dim: ReduceAxis, op: ReduceOp) -> Rc<AST<T>> {
         Rc::new(AST::Reduce {
             value: self,
             dim: dim,
@@ -92,7 +82,6 @@ impl<'a, T: ExecuteAST> AST<T> {
     fn new(value: T) -> Rc<AST<T>> {
         Rc::new(AST::Value { value })
     }
-
     fn execute(&self) -> T {
         match self {
             AST::Value { value } => value.value_v(),
@@ -103,7 +92,7 @@ impl<'a, T: ExecuteAST> AST<T> {
                 left_value,
                 right_value,
             } => left_value.execute().add_v(right_value.execute()),
-            AST::Reduce { value, dim, op } => value.execute().reduce(dim, op),
+            AST::Reduce { value, dim, op } => value.execute().reduce(*dim, *op),
         }
     }
 }
@@ -121,7 +110,7 @@ trait ExecuteAST {
     fn add_v(&self, right_value: Self) -> Self;
 
     // Reduce
-    fn reduce(&self, dim: &Dim, op: &ReduceOp) -> Self;
+    fn reduce(&self, dim: ReduceAxis, op: ReduceOp) -> Self;
 }
 
 type Value = f64;
@@ -141,8 +130,32 @@ impl ExecuteAST for Value {
     fn add_v(&self, right_value: Self) -> Self {
         *self + right_value
     }
-    fn reduce(&self, _dim: &Dim, _op: &ReduceOp) -> Self {
+    fn reduce(&self, _dim: ReduceAxis, _op: ReduceOp) -> Self {
         *self
+    }
+}
+
+impl ExecuteAST for Array<f32, Dim<IxDynImpl>> {
+    fn value_v(&self) -> Self {
+        self.clone()
+    }    
+    fn negate_v(&self) -> Self {
+        -self
+    }
+    fn exp_v(&self) -> Self {
+        self.mapv(f32::exp)
+    }
+    fn log_v(&self) -> Self {
+        self.mapv(f32::ln)
+    }
+    fn add_v(&self, right_value: Self) -> Self {
+        self + right_value
+    }
+    fn reduce(&self, axis: ReduceAxis, op: ReduceOp) -> Self {
+        match op {
+            ReduceOp::Sum => self.sum_axis(Axis(axis)),
+            ReduceOp::Max => self.fold_axis(Axis(axis), f32::MIN, |a, b| a.max(*b)),
+        }
     }
 }
 
@@ -151,4 +164,7 @@ fn main() {
 
     println!("{:?}", ast);
     println!("{:?}", ast.execute());
+    
+    let test = array![1.0, 2.0, 3.0];
+    println!("{:?}", test.fold_axis(Axis(0), f32::MIN, |a, b| a.max(*b)));
 }
