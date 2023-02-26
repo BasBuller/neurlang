@@ -1,7 +1,7 @@
 use num::Float;
+use rand::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;
-use rand::prelude::*;
 
 pub type ReduceAxis = usize;
 
@@ -178,9 +178,13 @@ where
     pub layout: MemoryLayout,
 }
 
+// fn negate<T: Float>(values: &Vec<T>) -> Vec<T> {
+
+// }
+
 impl<T> Array<T>
 where
-    T: Float + Copy,
+    T: Float,
 {
     // Utils
     pub fn new(values: Vec<T>, shape: Shape) -> Self {
@@ -197,43 +201,48 @@ where
             layout: MemoryLayout::ColumnMajor,
         }
     }
-    fn map_values(&self, f: fn(&T) -> T) -> Vec<T> {
-        self.values.borrow().iter().map(f).collect::<Vec<_>>()
-    }
-    fn zip_map_values(&self, right_array: &Self, f: fn((&T, &T)) -> T) -> Vec<T> {
-        self.values
-            .borrow()
-            .iter()
-            .zip(right_array.values.borrow().iter())
-            .map(f)
-            .collect::<Vec<_>>()
-    }
 
     // Unary
     pub fn negate(&self) -> Self {
-        let negated = self.map_values(|value| -*value);
+        let vs = self.values.borrow();
+        let negated = vs.iter().map(|&value| -value).collect::<Vec<_>>();
         self.dupe(negated)
     }
+    pub fn inpl_negate(&self) {
+        let mut vs = self.values.borrow_mut();
+        vs.iter_mut().map(|value| *value = -(*value)).count();
+    }
     pub fn exp(&self) -> Self {
-        let exponated = self.map_values(|value| value.exp());
+        let vs = self.values.borrow();
+        let exponated = vs.iter().map(|value| value.exp()).collect::<Vec<_>>();
         self.dupe(exponated)
     }
+    pub fn inpl_exp(&self) {
+        let mut vs = self.values.borrow_mut();
+        vs.iter_mut().map(|value| *value = value.exp()).count();
+    }
     pub fn ln(&self) -> Self {
-        let lns = self.map_values(|value| value.ln());
+        let vs = self.values.borrow();
+        let lns = vs.iter().map(|value| value.ln()).collect::<Vec<_>>();
         self.dupe(lns)
+    }
+    pub fn inpl_ln(&self) {
+        let mut vs = self.values.borrow_mut();
+        vs.iter_mut().map(|value| *value = value.ln()).count();
     }
 
     // Binary
     pub fn add(&self, right_array: &Self) -> Self {
-        let added_values = self.zip_map_values(right_array, |(lval, rval)| *lval + *rval);
+        let vs1 = self.values.borrow();
+        let vs2 = right_array.values.borrow();
+        let added_values = vs1.iter().zip(vs2.iter()).map(|(&lval, &rval)| lval + rval).collect::<Vec<_>>();
         self.dupe(added_values)
     }
 }
 
-pub fn rand_f32(shape: Shape) -> Array<f32>
-{
+pub fn rand_f32(shape: Shape) -> Array<f32> {
     let mut rng = rand::thread_rng();
-    let total_elems = shape.iter().fold(0, |res, val| res * *val);
+    let total_elems = shape.iter().fold(1, |res, val| res * (*val));
     let values = (0..total_elems).map(|_| rng.gen()).collect::<Vec<_>>();
     Array::new(values, shape)
 }
