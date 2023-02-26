@@ -1,7 +1,9 @@
 use neurlang::*;
 
 fn main() {
-    let mut arr = vec![1.0, 2.0, 3.0];
-    arr.iter_mut().map(|value| *value = -(*value)).count();
+    let arr = rand_f32(vec![1, 2]);
+    let vec = arr.values.borrow();
+    
+    
     println!("{arr:?}");
 }

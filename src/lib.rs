@@ -42,6 +42,7 @@ pub enum ASTOp<T: ExecuteAST> {
         left_value: Rc<ASTNode<T>>,
         right_value: Rc<ASTNode<T>>,
     },
+
     // // Reduce
     // Reduce {
     //     value: Rc<ASTNode<T>>,
@@ -162,13 +163,13 @@ pub trait ExecuteAST {
     // fn reduce(&self, dim: ReduceAxis, op: ReduceOp) -> Self;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum MemoryLayout {
     ColumnMajor,
     RowMajor,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Array<T>
 where
     T: Float,
@@ -187,14 +188,14 @@ where
         Array {
             values: RefCell::new(values),
             shape: shape,
-            layout: MemoryLayout::ColumnMajor,
+            layout: MemoryLayout::RowMajor,
         }
     }
     fn dupe(&self, values: Vec<T>) -> Self {
         Array {
             values: RefCell::new(values),
             shape: self.shape.clone(),
-            layout: MemoryLayout::ColumnMajor,
+            layout: self.layout.clone(),
         }
     }
 
