@@ -42,7 +42,6 @@ pub enum ASTOp<T: ExecuteAST> {
         left_value: Rc<ASTNode<T>>,
         right_value: Rc<ASTNode<T>>,
     },
-
     // // Reduce
     // Reduce {
     //     value: Rc<ASTNode<T>>,
@@ -260,23 +259,65 @@ where
             .collect::<Vec<_>>();
         self.dupe(added_values)
     }
-    
+
     // Axis reducing operations
-    fn slice(&self, axis: usize, index: usize) -> Self {
-        let n_prefix = self.shape[0..axis].iter().fold(1, |res, &value| res * value);
+    fn slice_vector(&self, axis: usize, index: usize) -> Vec<T> {
+        let n_prefix = self.shape[0..axis]
+            .iter()
+            .fold(1, |res, &value| res * value);
         let n_axis_suffix = self.shape[axis..].iter().fold(1, |res, &value| res * value);
-        let n_suffix = self.shape[(axis + 1..)].iter().fold(1, |res, &value| res * value);    
+        let n_suffix = self.shape[(axis + 1..)]
+            .iter()
+            .fold(1, |res, &value| res * value);
         let array = self.values.borrow();
 
-        let res_shape = self.shape[0..axis].iter().chain(self.shape[(axis + 1)..].iter()).map(|&val| val).collect::<Vec<_>>();
         let mut res_values = Vec::with_capacity(n_prefix * n_suffix);
         for prefix_idx in 0..n_prefix {
-            for suffix_idx in 0..n_suffix{
+            for suffix_idx in 0..n_suffix {
                 let arr_idx = (prefix_idx * n_axis_suffix) + (index * n_suffix) + suffix_idx;
                 res_values.push(array[arr_idx]);
                 // let res_idx = (prefix_idx * n_suffix) + suffix_idx;
                 // res_values[res_idx] = array[arr_idx];
             }
+        }
+
+        res_values
+    }
+
+    fn reduce_shape(&self, axis: usize) -> Shape {
+        self.shape[0..axis]
+            .iter()
+            .chain(self.shape[(axis + 1)..].iter())
+            .map(|&val| val)
+            .collect::<Vec<_>>()
+    }
+
+    pub fn slice(&self, axis: usize, index: usize) -> Self {
+        let res_shape = self.reduce_shape(axis);
+        let res_values = self.slice_vector(axis, index);
+        Self::new(res_values, res_shape)
+    }
+
+    // fn reduce(&self, axis: usize, reduce_f: &dyn Fn((&mut T, &T)) -> T) -> Self {
+    //     let res_shape = self.reduce_shape(axis);
+    //     let mut res_values = self.slice_vector(axis, 0);
+    //     for idx in 1..(self.shape[axis]) {
+    //         let add_values = self.slice_vector(axis, idx);
+    //         res_values.iter_mut().zip(add_values.iter()).map(reduce_f).count();
+    //     }
+    //     Self::new(res_values, res_shape)
+    // }
+
+    pub fn sum(&self, axis: usize) -> Self {
+        let res_shape = self.reduce_shape(axis);
+        let mut res_values = self.slice_vector(axis, 0);
+        for idx in 1..(self.shape[axis]) {
+            let add_values = self.slice_vector(axis, idx);
+            res_values
+                .iter_mut()
+                .zip(add_values.iter())
+                .map(|(res_v, &add_v)| *res_v = *res_v + add_v)
+                .count();
         }
         Self::new(res_values, res_shape)
     }
@@ -317,7 +358,7 @@ mod tests {
         let arr3 = arr1.add(&arr2);
         compare_vecs(&target, &arr3.values.borrow());
     }
-    
+
     #[test]
     fn slice() {
         let arr = Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], vec![2, 2, 2]);
