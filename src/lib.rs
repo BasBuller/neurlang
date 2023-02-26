@@ -178,10 +178,6 @@ where
     pub layout: MemoryLayout,
 }
 
-// fn negate<T: Float>(values: &Vec<T>) -> Vec<T> {
-
-// }
-
 impl<T> Array<T>
 where
     T: Float,
@@ -204,38 +200,63 @@ where
 
     // Unary
     pub fn negate(&self) -> Self {
-        let vs = self.values.borrow();
-        let negated = vs.iter().map(|&value| -value).collect::<Vec<_>>();
+        let negated = self
+            .values
+            .borrow()
+            .iter()
+            .map(|&value| -value)
+            .collect::<Vec<_>>();
         self.dupe(negated)
     }
     pub fn inpl_negate(&self) {
-        let mut vs = self.values.borrow_mut();
-        vs.iter_mut().map(|value| *value = -(*value)).count();
+        self.values
+            .borrow_mut()
+            .iter_mut()
+            .map(|value| *value = -(*value))
+            .count();
     }
     pub fn exp(&self) -> Self {
-        let vs = self.values.borrow();
-        let exponated = vs.iter().map(|value| value.exp()).collect::<Vec<_>>();
+        let exponated = self
+            .values
+            .borrow()
+            .iter()
+            .map(|value| value.exp())
+            .collect::<Vec<_>>();
         self.dupe(exponated)
     }
     pub fn inpl_exp(&self) {
-        let mut vs = self.values.borrow_mut();
-        vs.iter_mut().map(|value| *value = value.exp()).count();
+        self.values
+            .borrow_mut()
+            .iter_mut()
+            .map(|value| *value = value.exp())
+            .count();
     }
     pub fn ln(&self) -> Self {
-        let vs = self.values.borrow();
-        let lns = vs.iter().map(|value| value.ln()).collect::<Vec<_>>();
+        let lns = self
+            .values
+            .borrow()
+            .iter()
+            .map(|value| value.ln())
+            .collect::<Vec<_>>();
         self.dupe(lns)
     }
     pub fn inpl_ln(&self) {
-        let mut vs = self.values.borrow_mut();
-        vs.iter_mut().map(|value| *value = value.ln()).count();
+        self.values
+            .borrow_mut()
+            .iter_mut()
+            .map(|value| *value = value.ln())
+            .count();
     }
 
     // Binary
     pub fn add(&self, right_array: &Self) -> Self {
-        let vs1 = self.values.borrow();
-        let vs2 = right_array.values.borrow();
-        let added_values = vs1.iter().zip(vs2.iter()).map(|(&lval, &rval)| lval + rval).collect::<Vec<_>>();
+        let added_values = self
+            .values
+            .borrow()
+            .iter()
+            .zip(right_array.values.borrow().iter())
+            .map(|(&lval, &rval)| lval + rval)
+            .collect::<Vec<_>>();
         self.dupe(added_values)
     }
 }
