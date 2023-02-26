@@ -1,7 +1,7 @@
 use num::Float;
-use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::rc::Rc;
+use rand::prelude::*;
 
 pub type ReduceAxis = usize;
 
@@ -228,6 +228,14 @@ where
         let added_values = self.zip_map_values(right_array, |(lval, rval)| *lval + *rval);
         self.dupe(added_values)
     }
+}
+
+pub fn rand_f32(shape: Shape) -> Array<f32>
+{
+    let mut rng = rand::thread_rng();
+    let total_elems = shape.iter().fold(0, |res, val| res * *val);
+    let values = (0..total_elems).map(|_| rng.gen()).collect::<Vec<_>>();
+    Array::new(values, shape)
 }
 
 #[cfg(test)]

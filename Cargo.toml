@@ -8,3 +8,11 @@ edition = "2021"
 [dependencies]
 num = "0.4.0"
 ndarray = "0.15.6"
+rand = "0.8.5"
+
+[dev-dependencies]
+criterion = "0.4"
+
+[[bench]]
+name = "array_benchmark"
+harness = false
