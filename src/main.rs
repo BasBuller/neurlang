@@ -17,14 +17,14 @@ use neurlang::*;
 
 fn slice(array: &Vec<f32>, shape: &Vec<usize>, axis: usize, index: usize) -> Vec<f32> {
     let n_prefix = shape[0..axis].iter().fold(1, |res, &value| res * value);
+    let n_axis_suffix = shape[axis..].iter().fold(1, |res, &value| res * value);
     let n_suffix = shape[(axis + 1..)].iter().fold(1, |res, &value| res * value);    
-    println!("n_prefix: {n_prefix} - n_suffix: {n_suffix}");
-    let stride = n_prefix * n_suffix;
-    let mut res = vec![0_f32; stride];
+    let mut res = vec![0_f32; n_prefix * n_suffix];
+
     for prefix_idx in 0..n_prefix {
         for suffix_idx in 0..n_suffix{
             let res_idx = (prefix_idx * n_suffix) + suffix_idx;
-            let arr_idx = (prefix_idx * n_suffix) + (index * n_prefix) + suffix_idx;
+            let arr_idx = (prefix_idx * n_axis_suffix) + (index * n_suffix) + suffix_idx;
             res[res_idx] = array[arr_idx];
         }
     }
@@ -37,7 +37,7 @@ fn main() {
     let vec0 = (1..(n_elems + 1)).map(|val| val as f32).collect::<Vec<f32>>();
     println!("{vec0:?}\n");
     
-    let idx: usize = 0;
+    let idx: usize = 2;
     println!("Index {idx}, slice 0: {:?}\n", slice(&vec0, &shape, idx, 0));
     println!("Index {idx}, slice 1: {:?}\n", slice(&vec0, &shape, idx, 1));
 

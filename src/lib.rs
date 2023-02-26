@@ -260,6 +260,26 @@ where
             .collect::<Vec<_>>();
         self.dupe(added_values)
     }
+    
+    // Axis reducing operations
+    fn slice(&self, axis: usize, index: usize) -> Self {
+        let n_prefix = self.shape[0..axis].iter().fold(1, |res, &value| res * value);
+        let n_axis_suffix = self.shape[axis..].iter().fold(1, |res, &value| res * value);
+        let n_suffix = self.shape[(axis + 1..)].iter().fold(1, |res, &value| res * value);    
+        let array = self.values.borrow();
+
+        let res_shape = self.shape[0..axis].iter().chain(self.shape[(axis + 1)..].iter()).map(|&val| val).collect::<Vec<_>>();
+        let mut res_values = Vec::with_capacity(n_prefix * n_suffix);
+        for prefix_idx in 0..n_prefix {
+            for suffix_idx in 0..n_suffix{
+                let arr_idx = (prefix_idx * n_axis_suffix) + (index * n_suffix) + suffix_idx;
+                res_values.push(array[arr_idx]);
+                // let res_idx = (prefix_idx * n_suffix) + suffix_idx;
+                // res_values[res_idx] = array[arr_idx];
+            }
+        }
+        Self::new(res_values, res_shape)
+    }
 }
 
 pub fn rand_f32(shape: Shape) -> Array<f32> {
@@ -296,5 +316,22 @@ mod tests {
         let arr2 = Array::<f32>::new(vec![4.0, 5.0, 6.0], vec![3]);
         let arr3 = arr1.add(&arr2);
         compare_vecs(&target, &arr3.values.borrow());
+    }
+    
+    #[test]
+    fn slice() {
+        let arr = Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], vec![2, 2, 2]);
+
+        let arr0 = arr.slice(0, 0);
+        let target0: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0];
+        compare_vecs(&target0, &arr0.values.borrow());
+
+        let arr1 = arr.slice(1, 0);
+        let target1: Vec<f32> = vec![1.0, 2.0, 5.0, 6.0];
+        compare_vecs(&target1, &arr1.values.borrow());
+
+        let arr2 = arr.slice(2, 0);
+        let target2: Vec<f32> = vec![1.0, 3.0, 5.0, 7.0];
+        compare_vecs(&target2, &arr2.values.borrow());
     }
 }
