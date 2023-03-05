@@ -1,8 +1,6 @@
 use num::Float;
 use rand::prelude::*;
 use std::cell::RefCell;
-use std::iter::Map;
-use std::ops::Range;
 use std::rc::Rc;
 
 pub type ReduceAxis = usize;
@@ -181,34 +179,6 @@ where
     pub layout: MemoryLayout,
 }
 
-// Hot loops wrapped in a function such that the compiler can optimize them well!
-//   TODO: See if I can refactor this into a single generator function or macro that takes only
-//   the core functionality and wraps it in the map logic
-pub fn negate<T: Float>(values: &[T]) -> Vec<T> {
-    values.iter().map(|&value| -value).collect::<Vec<_>>()
-}
-pub fn inpl_negate<T: Float>(values: &mut [T]) {
-    values.iter_mut().map(|value| *value = -(*value)).count();
-}
-pub fn exp<T: Float>(values: &[T]) -> Vec<T> {
-    values.iter().map(|value| value.exp()).collect::<Vec<_>>()
-}
-pub fn inpl_exp<T: Float>(values: &mut [T]) {
-    values.iter_mut().map(|value| *value = value.exp()).count();
-}
-pub fn ln<T: Float>(values: &[T]) -> Vec<T> {
-    values.iter().map(|value| value.ln()).collect::<Vec<_>>()
-}
-pub fn inpl_ln<T: Float>(values: &mut [T]) {
-    values.iter_mut().map(|value| *value = value.ln()).count();
-}
-pub fn add<T: Float>(lvalues: &[T], rvalues: &[T]) -> Vec<T> {
-    lvalues
-        .iter()
-        .zip(rvalues.iter())
-        .map(|(&lval, &rval)| lval + rval)
-        .collect::<Vec<_>>()
-}
 pub fn inpl_add<T: Float>(lvalues: &mut [T], rvalues: &[T]) {
     lvalues
         .iter_mut()
@@ -242,32 +212,55 @@ where
     }
 
     // Unary
-    pub fn negate(&self) -> Self {
-        let negated = negate(&self.values.borrow());
-        self.dupe(negated)
+    pub fn unary_op<F>(&self, unary_f: F) -> Self
+    where
+        F: Fn(&T) -> T,
+    {
+        let iterated = self.values.borrow().iter().map(unary_f).collect::<Vec<_>>();
+        self.dupe(iterated)
     }
-    pub fn inpl_negate(&self) {
-        inpl_negate(&mut self.values.borrow_mut());
+    pub fn negate(&self) -> Self {
+        self.unary_op(|&value| -value)
     }
     pub fn exp(&self) -> Self {
-        let exponated = exp(&self.values.borrow());
-        self.dupe(exponated)
-    }
-    pub fn inpl_exp(&self) {
-        inpl_exp(&mut self.values.borrow_mut());
+        self.unary_op(|value| value.exp())
     }
     pub fn ln(&self) -> Self {
-        let lns = ln(&self.values.borrow());
-        self.dupe(lns)
+        self.unary_op(|value| value.ln())
+    }
+
+    pub fn inpl_unary_op<F>(&self, unary_f: F)
+    where
+        F: Fn(&mut T),
+    {
+        self.values.borrow_mut().iter_mut().map(unary_f).count();
+    }
+    pub fn inpl_negate(&self) {
+        self.inpl_unary_op(|value| *value = -(*value));
+    }
+    pub fn inpl_exp(&self) {
+        self.inpl_unary_op(|value| *value = value.exp());
     }
     pub fn inpl_ln(&self) {
-        inpl_ln(&mut self.values.borrow_mut());
+        self.inpl_unary_op(|value| *value = value.ln());
     }
 
     // Binary
+    pub fn binary_op<F>(&self, right_array: &Self, binary_f: F) -> Self
+    where
+        F: Fn((&T, &T)) -> T,
+    {
+        let res_values = self
+            .values
+            .borrow()
+            .iter()
+            .zip(right_array.values.borrow().iter())
+            .map(binary_f)
+            .collect::<Vec<_>>();
+        self.dupe(res_values)
+    }
     pub fn add(&self, right_array: &Self) -> Self {
-        let added_values = add(&self.values.borrow(), &right_array.values.borrow());
-        self.dupe(added_values)
+        self.binary_op(right_array, |(&lval, &rval)| lval + rval)
     }
 
     // Axis reducing operations
@@ -301,17 +294,10 @@ where
         Self::new(res_values, res_shape)
     }
 
-    // fn reduce(&self, axis: usize, reduce_f: &dyn Fn((&mut T, &T)) -> T) -> Self {
-    //     let res_shape = self.reduce_shape(axis);
-    //     let mut res_values = self.slice_vector(axis, 0);
-    //     for idx in 1..(self.shape[axis]) {
-    //         let add_values = self.slice_vector(axis, idx);
-    //         res_values.iter_mut().zip(add_values.iter()).map(reduce_f).count();
-    //     }
-    //     Self::new(res_values, res_shape)
-    // }
-
-    pub fn sum(&self, axis: usize) -> Self {
+    pub fn reduce<F>(&self, axis: usize, reduce_f: F) -> Self
+    where
+        F: Fn(&mut [T], &[T]),
+    {
         let n_prefix = count_elements(&self.shape[0..axis]);
         let n_axis_suffix = count_elements(&self.shape[axis..]);
         let n_suffix = count_elements(&self.shape[(axis + 1)..]);
@@ -325,13 +311,17 @@ where
                 let src_end_idx = src_start_idx + n_suffix;
                 let res_start_idx = prefix_idx * n_suffix;
                 let res_end_idx = res_start_idx + n_suffix;
-                inpl_add(
+                reduce_f(
                     &mut res_values[res_start_idx..res_end_idx],
                     &array[src_start_idx..src_end_idx],
                 );
             }
         }
         Self::new(res_values, res_shape)
+    }
+
+    pub fn sum(&self, axis: usize) -> Self {
+        self.reduce(axis, inpl_add)
     }
 }
 

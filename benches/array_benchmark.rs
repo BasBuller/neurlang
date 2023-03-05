@@ -1,5 +1,33 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use neurlang::*;
+use num::Float;
+
+// Some reference implementations
+pub fn negate<T: Float>(values: &[T]) -> Vec<T> {
+    values.iter().map(|&value| -value).collect::<Vec<_>>()
+}
+pub fn inpl_negate<T: Float>(values: &mut [T]) {
+    values.iter_mut().map(|value| *value = -(*value)).count();
+}
+pub fn exp<T: Float>(values: &[T]) -> Vec<T> {
+    values.iter().map(|value| value.exp()).collect::<Vec<_>>()
+}
+pub fn inpl_exp<T: Float>(values: &mut [T]) {
+    values.iter_mut().map(|value| *value = value.exp()).count();
+}
+pub fn ln<T: Float>(values: &[T]) -> Vec<T> {
+    values.iter().map(|value| value.ln()).collect::<Vec<_>>()
+}
+pub fn inpl_ln<T: Float>(values: &mut [T]) {
+    values.iter_mut().map(|value| *value = value.ln()).count();
+}
+pub fn add<T: Float>(lvalues: &[T], rvalues: &[T]) -> Vec<T> {
+    lvalues
+        .iter()
+        .zip(rvalues.iter())
+        .map(|(&lval, &rval)| lval + rval)
+        .collect::<Vec<_>>()
+}
 
 fn setup(shape: Shape) -> (Array<f32>, Vec<f32>) {
     let nelem = shape.iter().fold(1, |res, &val| res * val);
