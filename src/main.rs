@@ -1,14 +1,23 @@
-use neurlang::*;
+// use neurlang::*;
+
+pub fn square<T>(values: &Vec<T>) -> Vec<T>
+where
+    T: std::ops::Mul + std::ops::Mul<Output = T> + Copy,
+{
+    values
+        .iter()
+        .map(|&value| value * value)
+        .collect::<Vec<_>>()
+}
+
+pub fn square_f32(values: &Vec<f32>) -> Vec<f32> {
+    values
+        .iter()
+        .map(|&value| value * value)
+        .collect::<Vec<_>>()
+}
 
 fn main() {
-    let shape = vec![1, 2, 3];
-    let n_elems = shape.iter().fold(1, |res, value| res * value);
-    let vec0 = (1..(n_elems + 1))
-        .map(|val| val as f32)
-        .collect::<Vec<f32>>();
-    let arr0 = Array::new(vec0, shape);
-    println!("{arr0:?}");
-
-    let arr1 = arr0.sum(1);
-    println!("{arr1:?}");
+    let vec0 = vec![0.0, 1.0, 2.0, 3.0];
+    let res = square::<f32>(&vec0);
 }

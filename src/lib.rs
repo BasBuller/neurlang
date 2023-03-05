@@ -42,12 +42,13 @@ pub enum ASTOp<T: ExecuteAST> {
         left_value: Rc<ASTNode<T>>,
         right_value: Rc<ASTNode<T>>,
     },
-    // // Reduce
-    // Reduce {
-    //     value: Rc<ASTNode<T>>,
-    //     dim: ReduceAxis,
-    //     op: ReduceOp,
-    // },
+
+    // Reduce
+    Reduce {
+        value: Rc<ASTNode<T>>,
+        dim: ReduceAxis,
+        op: ReduceOp,
+    },
 }
 
 impl<T: ExecuteAST> ASTNode<T> {
@@ -103,26 +104,26 @@ impl<T: ExecuteAST> ASTNode<T> {
         })
     }
 
-    // // Reduce
-    // fn reduce(self: Rc<Self>, dim: ReduceAxis, op: ReduceOp) -> Rc<ASTNode<T>> {
-    //     assert!(
-    //         self.shape.len() >= dim,
-    //         "Axis {} not in tensor of dimensions {}",
-    //         dim,
-    //         self.shape.len()
-    //     );
+    // Reduce
+    fn reduce(self: Rc<Self>, dim: ReduceAxis, op: ReduceOp) -> Rc<ASTNode<T>> {
+        assert!(
+            self.shape.len() >= dim,
+            "Axis {} not in tensor of dimensions {}",
+            dim,
+            self.shape.len()
+        );
 
-    //     let mut new_shape = self.shape.clone();
-    //     new_shape.remove(dim);
-    //     Rc::new(ASTNode {
-    //         op: ASTOp::Reduce {
-    //             value: self,
-    //             dim: dim,
-    //             op: op,
-    //         },
-    //         shape: new_shape,
-    //     })
-    // }
+        let mut new_shape = self.shape.clone();
+        new_shape.remove(dim);
+        Rc::new(ASTNode {
+            op: ASTOp::Reduce {
+                value: self,
+                dim: dim,
+                op: op,
+            },
+            shape: new_shape,
+        })
+    }
 
     // Utils
     pub fn new(value: T, shape: Shape) -> Rc<ASTNode<T>> {
@@ -141,7 +142,7 @@ impl<T: ExecuteAST> ASTNode<T> {
                 left_value,
                 right_value,
             } => left_value.execute().add_v(right_value.execute()),
-            // ASTOp::Reduce { value, dim, op } => value.execute().reduce(*dim, *op),
+            ASTOp::Reduce { value, dim, op } => value.execute().reduce_v(*dim, *op),
         }
     }
 }
@@ -158,8 +159,8 @@ pub trait ExecuteAST {
     // Binary
     fn add_v(&self, right_value: Self) -> Self;
 
-    // // Reduce
-    // fn reduce(&self, dim: ReduceAxis, op: ReduceOp) -> Self;
+    // Reduce
+    fn reduce_v(&self, dim: ReduceAxis, op: ReduceOp) -> Self;
 }
 
 #[derive(Debug, Clone)]
@@ -176,6 +177,35 @@ where
     pub values: RefCell<Vec<T>>,
     pub shape: Shape,
     pub layout: MemoryLayout,
+}
+
+// Hot loops wrapped in a function such that the compiler can optimize them well!
+//   TODO: See if I can refactor this into a single generator function or macro that takes only
+//   the core functionality and wraps it in the map logic
+pub fn negate<T: Float>(values: &[T]) -> Vec<T> {
+    values.iter().map(|&value| value).collect::<Vec<_>>()
+}
+pub fn inpl_negate<T: Float>(values: &mut [T]) {
+    values.iter_mut().map(|value| *value = -(*value)).count();
+}
+pub fn exp<T: Float>(values: &[T]) -> Vec<T> {
+    values.iter().map(|value| value.exp()).collect::<Vec<_>>()
+}
+pub fn inpl_exp<T: Float>(values: &mut [T]) {
+    values.iter_mut().map(|value| *value = value.exp()).count();
+}
+pub fn ln<T: Float>(values: &[T]) -> Vec<T> {
+    values.iter().map(|value| value.ln()).collect::<Vec<_>>()
+}
+pub fn inpl_ln<T: Float>(values: &mut [T]) {
+    values.iter_mut().map(|value| *value = value.ln()).count();
+}
+pub fn add<T: Float>(lvalues: &[T], rvalues: &[T]) -> Vec<T> {
+    lvalues
+        .iter()
+        .zip(rvalues.iter())
+        .map(|(&lval, &rval)| lval + rval)
+        .collect::<Vec<_>>()
 }
 
 impl<T> Array<T>
@@ -200,67 +230,42 @@ where
 
     // Unary
     pub fn negate(&self) -> Self {
-        let negated = self
-            .values
-            .borrow()
-            .iter()
-            .map(|&value| -value)
-            .collect::<Vec<_>>();
+        let negated = negate(&self.values.borrow());
         self.dupe(negated)
     }
     pub fn inpl_negate(&self) {
-        self.values
-            .borrow_mut()
-            .iter_mut()
-            .map(|value| *value = -(*value))
-            .count();
+        inpl_negate(&mut self.values.borrow_mut());
     }
     pub fn exp(&self) -> Self {
-        let exponated = self
-            .values
-            .borrow()
-            .iter()
-            .map(|value| value.exp())
-            .collect::<Vec<_>>();
+        let exponated = exp(&self.values.borrow());
         self.dupe(exponated)
     }
     pub fn inpl_exp(&self) {
-        self.values
-            .borrow_mut()
-            .iter_mut()
-            .map(|value| *value = value.exp())
-            .count();
+        inpl_exp(&mut self.values.borrow_mut());
     }
     pub fn ln(&self) -> Self {
-        let lns = self
-            .values
-            .borrow()
-            .iter()
-            .map(|value| value.ln())
-            .collect::<Vec<_>>();
+        let lns = ln(&self.values.borrow());
         self.dupe(lns)
     }
     pub fn inpl_ln(&self) {
-        self.values
-            .borrow_mut()
-            .iter_mut()
-            .map(|value| *value = value.ln())
-            .count();
+        inpl_ln(&mut self.values.borrow_mut());
     }
 
     // Binary
     pub fn add(&self, right_array: &Self) -> Self {
-        let added_values = self
-            .values
-            .borrow()
-            .iter()
-            .zip(right_array.values.borrow().iter())
-            .map(|(&lval, &rval)| lval + rval)
-            .collect::<Vec<_>>();
+        let added_values = add(&self.values.borrow(), &right_array.values.borrow());
         self.dupe(added_values)
     }
 
     // Axis reducing operations
+    fn reduce_shape(&self, axis: usize) -> Shape {
+        self.shape[0..axis]
+            .iter()
+            .chain(self.shape[(axis + 1)..].iter())
+            .map(|&val| val)
+            .collect::<Vec<_>>()
+    }
+
     fn slice_vector(&self, axis: usize, index: usize) -> Vec<T> {
         let n_prefix = self.shape[0..axis]
             .iter()
@@ -280,16 +285,7 @@ where
                 // res_values[res_idx] = array[arr_idx];
             }
         }
-
         res_values
-    }
-
-    fn reduce_shape(&self, axis: usize) -> Shape {
-        self.shape[0..axis]
-            .iter()
-            .chain(self.shape[(axis + 1)..].iter())
-            .map(|&val| val)
-            .collect::<Vec<_>>()
     }
 
     pub fn slice(&self, axis: usize, index: usize) -> Self {
