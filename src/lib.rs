@@ -262,6 +262,12 @@ where
     pub fn add(&self, right_array: &Self) -> Self {
         self.binary_op(right_array, |(&lval, &rval)| lval + rval)
     }
+    pub fn max(&self, right_array: &Self) -> Self {
+        self.binary_op(
+            right_array,
+            |(&lval, &rval)| if lval > rval { lval } else { rval },
+        )
+    }
 
     // Axis reducing operations
     fn reduce_shape(&self, axis: usize) -> Shape {
@@ -311,6 +317,7 @@ where
                 let src_end_idx = src_start_idx + n_suffix;
                 let res_start_idx = prefix_idx * n_suffix;
                 let res_end_idx = res_start_idx + n_suffix;
+
                 reduce_f(
                     &mut res_values[res_start_idx..res_end_idx],
                     &array[src_start_idx..src_end_idx],
