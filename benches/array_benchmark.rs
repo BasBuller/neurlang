@@ -64,11 +64,16 @@ fn add_benchmark(c: &mut Criterion) {
     group.bench_function("Vector", |b| b.iter(|| add(&vec0, &vec1)));
 }
 
-fn reduce_benchmark(c: &mut Criterion) {
-    let (array0, _) = setup(vec![100, 200, 150]);
+fn slice_benchmark(c: &mut Criterion) {
+    let (array0, _) = setup(vec![128, 512, 1024]);
 
-    let mut group = c.benchmark_group("Sum");
-    group.bench_function("Array", |b| b.iter(|| array0.sum(1)));
+    c.bench_function("Slice array", |b| b.iter(|| array0.slice(1, 0)));
+}
+
+fn reduce_benchmark(c: &mut Criterion) {
+    let (array0, _) = setup(vec![128, 512, 1024]);
+
+    c.bench_function("Sum array dim", |b| b.iter(|| array0.sum(1)));
 }
 
 criterion_group!(
@@ -77,6 +82,7 @@ criterion_group!(
     exp_benchmark,
     ln_benchmark,
     add_benchmark,
+    slice_benchmark,
     reduce_benchmark,
 );
 criterion_main!(benches);

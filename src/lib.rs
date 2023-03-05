@@ -216,7 +216,7 @@ pub fn inpl_add<T: Float>(lvalues: &mut [T], rvalues: &[T]) {
 }
 
 fn count_elements(shape: &[usize]) -> usize {
-    shape.iter().fold(1, |res, &val| res * val)    
+    shape.iter().fold(1, |res, &val| res * val)
 }
 
 impl<T> Array<T>
@@ -285,13 +285,11 @@ where
 
         let mut res_values = Vec::with_capacity(n_prefix * n_suffix);
         for prefix_idx in 0..n_prefix {
-            for suffix_idx in 0..n_suffix {
-                let arr_idx = (prefix_idx * n_axis_suffix) + (index * n_suffix) + suffix_idx;
-                res_values.push(array[arr_idx]);
-                // let res_idx = (prefix_idx * n_suffix) + suffix_idx;
-                // res_values[res_idx] = array[arr_idx];
-            }
+            let src_start_idx = (prefix_idx * n_axis_suffix) + (index * n_suffix);
+            let src_end_idx = src_start_idx + n_suffix;
+            res_values.extend_from_slice(&array[src_start_idx..src_end_idx]);
         }
+
         res_values
     }
 
