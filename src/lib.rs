@@ -105,7 +105,7 @@ impl<T: ExecuteAST> ASTNode<T> {
     }
 
     // Reduce
-    fn reduce(self: Rc<Self>, dim: ReduceAxis, op: ReduceOp) -> Rc<ASTNode<T>> {
+    pub fn reduce(self: Rc<Self>, dim: ReduceAxis, op: ReduceOp) -> Rc<ASTNode<T>> {
         assert!(
             self.shape.len() >= dim,
             "Axis {} not in tensor of dimensions {}",
@@ -177,14 +177,6 @@ where
     pub values: RefCell<Vec<T>>,
     pub shape: Shape,
     pub layout: MemoryLayout,
-}
-
-pub fn inpl_add<T: Float>(lvalues: &mut [T], rvalues: &[T]) {
-    lvalues
-        .iter_mut()
-        .zip(rvalues.iter())
-        .map(|(lval, &rval)| *lval = (*lval) + rval)
-        .count();
 }
 
 fn count_elements(shape: &[usize]) -> usize {
@@ -302,7 +294,7 @@ where
 
     pub fn reduce<F>(&self, axis: usize, reduce_f: F) -> Self
     where
-        F: Fn(&mut [T], &[T]),
+        F: Fn((&mut T, &T)),
     {
         let n_prefix = count_elements(&self.shape[0..axis]);
         let n_axis_suffix = count_elements(&self.shape[axis..]);
@@ -315,20 +307,33 @@ where
             for index in 1..self.shape[axis] {
                 let src_start_idx = (prefix_idx * n_axis_suffix) + (index * n_suffix);
                 let src_end_idx = src_start_idx + n_suffix;
+                let src_slice = &array[src_start_idx..src_end_idx];
+
                 let res_start_idx = prefix_idx * n_suffix;
                 let res_end_idx = res_start_idx + n_suffix;
+                let res_slice = &mut res_values[res_start_idx..res_end_idx];
 
-                reduce_f(
-                    &mut res_values[res_start_idx..res_end_idx],
-                    &array[src_start_idx..src_end_idx],
-                );
+                res_slice
+                    .iter_mut()
+                    .zip(src_slice.iter())
+                    .map(&reduce_f)
+                    .count();
             }
         }
         Self::new(res_values, res_shape)
     }
 
-    pub fn sum(&self, axis: usize) -> Self {
-        self.reduce(axis, inpl_add)
+    pub fn reduce_sum(&self, axis: usize) -> Self {
+        self.reduce(axis, |(res_val, src_val)| *res_val = *res_val + *src_val)
+    }
+    pub fn reduce_max(&self, axis: usize) -> Self {
+        self.reduce(axis, |(res_val, src_val)| {
+            *res_val = if *res_val > *src_val {
+                *res_val
+            } else {
+                *src_val
+            }
+        })
     }
 }
 
@@ -386,19 +391,36 @@ mod tests {
     }
 
     #[test]
-    fn sum() {
+    fn reduce_sum() {
         let arr = Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], vec![2, 2, 2]);
 
-        let arr0 = arr.sum(0);
+        let arr0 = arr.reduce_sum(0);
         let target0: Vec<f32> = vec![6.0, 8.0, 10.0, 12.0];
         compare_vecs(&target0, &arr0.values.borrow());
 
-        let arr1 = arr.sum(1);
+        let arr1 = arr.reduce_sum(1);
         let target1: Vec<f32> = vec![4.0, 6.0, 12.0, 14.0];
         compare_vecs(&target1, &arr1.values.borrow());
 
-        let arr2 = arr.sum(2);
+        let arr2 = arr.reduce_sum(2);
         let target2: Vec<f32> = vec![3.0, 7.0, 11.0, 15.0];
+        compare_vecs(&target2, &arr2.values.borrow());
+    }
+
+    #[test]
+    fn reduce_max() {
+        let arr = Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], vec![2, 2, 2]);
+
+        let arr0 = arr.reduce_max(0);
+        let target0: Vec<f32> = vec![5.0, 6.0, 7.0, 8.0];
+        compare_vecs(&target0, &arr0.values.borrow());
+
+        let arr1 = arr.reduce_max(1);
+        let target1: Vec<f32> = vec![3.0, 4.0, 7.0, 8.0];
+        compare_vecs(&target1, &arr1.values.borrow());
+
+        let arr2 = arr.reduce_max(2);
+        let target2: Vec<f32> = vec![2.0, 4.0, 6.0, 8.0];
         compare_vecs(&target2, &arr2.values.borrow());
     }
 }

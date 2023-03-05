@@ -101,7 +101,8 @@ fn slice_benchmark(c: &mut Criterion) {
 fn reduce_benchmark(c: &mut Criterion) {
     let (array0, _) = setup(vec![128, 512, 1024]);
 
-    c.bench_function("Sum array dim", |b| b.iter(|| array0.sum(1)));
+    c.bench_function("Sum array dim", |b| b.iter(|| array0.reduce_sum(1)));
+    c.bench_function("Max array dim", |b| b.iter(|| array0.reduce_max(1)));
 }
 
 criterion_group!(
