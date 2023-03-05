@@ -1,6 +1,8 @@
 use num::Float;
 use rand::prelude::*;
 use std::cell::RefCell;
+use std::iter::Map;
+use std::ops::Range;
 use std::rc::Rc;
 
 pub type ReduceAxis = usize;
@@ -165,7 +167,7 @@ pub trait ExecuteAST {
 
 #[derive(Debug, Clone)]
 pub enum MemoryLayout {
-    ColumnMajor,
+    // ColumnMajor,
     RowMajor,
 }
 
@@ -221,7 +223,7 @@ fn count_elements(shape: &[usize]) -> usize {
 
 impl<T> Array<T>
 where
-    T: Float,
+    T: Float + std::fmt::Debug,
 {
     // Utils
     pub fn new(values: Vec<T>, shape: Shape) -> Self {
@@ -310,15 +312,24 @@ where
     // }
 
     pub fn sum(&self, axis: usize) -> Self {
+        let n_prefix = count_elements(&self.shape[0..axis]);
+        let n_axis_suffix = count_elements(&self.shape[axis..]);
+        let n_suffix = count_elements(&self.shape[(axis + 1)..]);
+        let array = self.values.borrow();
+
         let res_shape = self.reduce_shape(axis);
         let mut res_values = self.slice_vector(axis, 0);
-        for idx in 1..(self.shape[axis]) {
-            let add_values = self.slice_vector(axis, idx);
-            res_values
-                .iter_mut()
-                .zip(add_values.iter())
-                .map(|(res_v, &add_v)| *res_v = *res_v + add_v)
-                .count();
+        for prefix_idx in 0..n_prefix {
+            for index in 1..self.shape[axis] {
+                let src_start_idx = (prefix_idx * n_axis_suffix) + (index * n_suffix);
+                let src_end_idx = src_start_idx + n_suffix;
+                let res_start_idx = prefix_idx * n_suffix;
+                let res_end_idx = res_start_idx + n_suffix;
+                inpl_add(
+                    &mut res_values[res_start_idx..res_end_idx],
+                    &array[src_start_idx..src_end_idx],
+                );
+            }
         }
         Self::new(res_values, res_shape)
     }
@@ -374,6 +385,23 @@ mod tests {
 
         let arr2 = arr.slice(2, 0);
         let target2: Vec<f32> = vec![1.0, 3.0, 5.0, 7.0];
+        compare_vecs(&target2, &arr2.values.borrow());
+    }
+
+    #[test]
+    fn sum() {
+        let arr = Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], vec![2, 2, 2]);
+
+        let arr0 = arr.sum(0);
+        let target0: Vec<f32> = vec![6.0, 8.0, 10.0, 12.0];
+        compare_vecs(&target0, &arr0.values.borrow());
+
+        let arr1 = arr.sum(1);
+        let target1: Vec<f32> = vec![4.0, 6.0, 12.0, 14.0];
+        compare_vecs(&target1, &arr1.values.borrow());
+
+        let arr2 = arr.sum(2);
+        let target2: Vec<f32> = vec![3.0, 7.0, 11.0, 15.0];
         compare_vecs(&target2, &arr2.values.borrow());
     }
 }
