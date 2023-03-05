@@ -141,7 +141,7 @@ impl<T: ExecuteAST> ASTNode<T> {
             ASTOp::Add {
                 left_value,
                 right_value,
-            } => left_value.execute().add_v(right_value.execute()),
+            } => left_value.execute().add_v(&right_value.execute()),
             ASTOp::Reduce { value, dim, op } => value.execute().reduce_v(*dim, *op),
         }
     }
@@ -157,10 +157,41 @@ pub trait ExecuteAST {
     fn log_v(&self) -> Self;
 
     // Binary
-    fn add_v(&self, right_value: Self) -> Self;
+    fn add_v(&self, right_value: &Self) -> Self;
+    fn max_v(&self, right_value: &Self) -> Self;
 
     // Reduce
-    fn reduce_v(&self, dim: ReduceAxis, op: ReduceOp) -> Self;
+    fn reduce_v(&self, axis: ReduceAxis, op: ReduceOp) -> Self;
+}
+
+impl<T> ExecuteAST for Array<T>
+where 
+    T: Float + std::fmt::Debug,
+{
+    fn value_v(&self) -> Self {
+        self.clone()
+    }
+    fn negate_v(&self) -> Self {
+        self.negate()
+    }
+    fn exp_v(&self) -> Self {
+        self.exp()
+    }
+    fn log_v(&self) -> Self {
+        self.ln()
+    }
+    fn add_v(&self, right_value: &Self) -> Self {
+        self.add(right_value)
+    }
+    fn max_v(&self, right_value: &Self) -> Self {
+        self.max(right_value)
+    }
+    fn reduce_v(&self, axis: ReduceAxis, op: ReduceOp) -> Self {
+        match op {
+            ReduceOp::Sum => {self.reduce_sum(axis)},
+            ReduceOp::Max => {self.reduce_max(axis)},
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -181,6 +212,13 @@ where
 
 fn count_elements(shape: &[usize]) -> usize {
     shape.iter().fold(1, |res, &val| res * val)
+}
+
+pub fn rand_f32(shape: Shape) -> Array<f32> {
+    let mut rng = rand::thread_rng();
+    let total_elems = shape.iter().fold(1, |res, val| res * (*val));
+    let values = (0..total_elems).map(|_| rng.gen()).collect::<Vec<_>>();
+    Array::new(values, shape)
 }
 
 impl<T> Array<T>
@@ -335,13 +373,6 @@ where
             }
         })
     }
-}
-
-pub fn rand_f32(shape: Shape) -> Array<f32> {
-    let mut rng = rand::thread_rng();
-    let total_elems = shape.iter().fold(1, |res, val| res * (*val));
-    let values = (0..total_elems).map(|_| rng.gen()).collect::<Vec<_>>();
-    Array::new(values, shape)
 }
 
 #[cfg(test)]
