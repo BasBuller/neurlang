@@ -183,7 +183,7 @@ where
 //   TODO: See if I can refactor this into a single generator function or macro that takes only
 //   the core functionality and wraps it in the map logic
 pub fn negate<T: Float>(values: &[T]) -> Vec<T> {
-    values.iter().map(|&value| value).collect::<Vec<_>>()
+    values.iter().map(|&value| -value).collect::<Vec<_>>()
 }
 pub fn inpl_negate<T: Float>(values: &mut [T]) {
     values.iter_mut().map(|value| *value = -(*value)).count();
@@ -206,6 +206,17 @@ pub fn add<T: Float>(lvalues: &[T], rvalues: &[T]) -> Vec<T> {
         .zip(rvalues.iter())
         .map(|(&lval, &rval)| lval + rval)
         .collect::<Vec<_>>()
+}
+pub fn inpl_add<T: Float>(lvalues: &mut [T], rvalues: &[T]) {
+    lvalues
+        .iter_mut()
+        .zip(rvalues.iter())
+        .map(|(lval, &rval)| *lval = (*lval) + rval)
+        .count();
+}
+
+fn count_elements(shape: &[usize]) -> usize {
+    shape.iter().fold(1, |res, &val| res * val)    
 }
 
 impl<T> Array<T>
@@ -267,13 +278,9 @@ where
     }
 
     fn slice_vector(&self, axis: usize, index: usize) -> Vec<T> {
-        let n_prefix = self.shape[0..axis]
-            .iter()
-            .fold(1, |res, &value| res * value);
-        let n_axis_suffix = self.shape[axis..].iter().fold(1, |res, &value| res * value);
-        let n_suffix = self.shape[(axis + 1..)]
-            .iter()
-            .fold(1, |res, &value| res * value);
+        let n_prefix = count_elements(&self.shape[0..axis]);
+        let n_axis_suffix = count_elements(&self.shape[axis..]);
+        let n_suffix = count_elements(&self.shape[(axis + 1)..]);
         let array = self.values.borrow();
 
         let mut res_values = Vec::with_capacity(n_prefix * n_suffix);
