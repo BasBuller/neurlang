@@ -1,4 +1,5 @@
 use neurlang::neurlang::*;
+use neurlang::slice::*;
 
 fn main() {
     for idx in 0..4 {
