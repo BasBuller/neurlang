@@ -1,4 +1,4 @@
-use neurlang::*;
+use neurlang::neurlang::*;
 
 fn main() {
     for idx in 0..4 {

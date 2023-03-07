@@ -1,5 +1,6 @@
+use neurlang::neurlang::*;
+
 use criterion::{criterion_group, criterion_main, Criterion};
-use neurlang::*;
 use num::Float;
 
 // Some reference implementations
