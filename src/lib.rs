@@ -17,8 +17,6 @@ pub struct ASTNode<T: ExecuteAST> {
     shape: Shape,
 }
 
-pub type Shape = Vec<usize>;
-
 #[derive(Debug)]
 pub enum ASTOp<T: ExecuteAST> {
     // Leaf
@@ -210,7 +208,7 @@ where
     pub layout: MemoryLayout,
 }
 
-fn count_elements(shape: &[usize]) -> usize {
+pub fn count_elements(shape: &[usize]) -> usize {
     shape.iter().fold(1, |res, &val| res * val)
 }
 
@@ -375,6 +373,61 @@ where
     }
 }
 
+
+pub type Shape = Vec<usize>;
+
+pub fn make_slice(shape: Shape, axis: usize, index: usize) -> Slice {
+    Slice { shape, axis, index }
+}
+
+pub struct Slice {
+    shape: Shape,
+    axis: usize,
+    index: usize,
+}
+
+pub struct SliceIterator {
+    n_prefix: usize,
+    n_axis_suffix: usize,
+    n_suffix: usize,
+    index: usize,
+    prefix_idx: usize,
+}
+
+impl IntoIterator for Slice {
+    type Item = (usize, usize);
+    type IntoIter = SliceIterator;
+    
+    fn into_iter(self) -> Self::IntoIter {
+        let axis = self.axis;
+        let n_prefix = count_elements(&self.shape[0..axis]);
+        let n_axis_suffix = count_elements(&self.shape[axis..]);
+        let n_suffix = count_elements(&self.shape[(axis + 1)..]);
+        SliceIterator {
+            n_prefix: n_prefix,
+            prefix_idx: 0,
+            n_axis_suffix: n_axis_suffix,
+            n_suffix: n_suffix,
+            index: self.index,
+        }
+    }
+}
+
+impl Iterator for SliceIterator {
+    type Item = (usize, usize);
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.prefix_idx < self.n_prefix {
+            let src_start_idx = (self.prefix_idx * self.n_axis_suffix) + (self.index * self.n_suffix);
+            let src_end_idx = src_start_idx + self.n_suffix;
+            self.prefix_idx += 1;
+            Some((src_start_idx, src_end_idx))
+        } else {
+            None
+        }
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -453,5 +506,39 @@ mod tests {
         let arr2 = arr.reduce_max(2);
         let target2: Vec<f32> = vec![2.0, 4.0, 6.0, 8.0];
         compare_vecs(&target2, &arr2.values.borrow());
+    }
+
+    #[test]
+    fn slicing_iterator() {
+        let slice = make_slice(vec![2, 2, 2], 0, 0);
+        let target_indices = vec![(0, 4)];
+        let slice_indices = slice.into_iter().collect::<Vec<_>>();
+        assert_eq!(target_indices, slice_indices);
+        
+        let slice = make_slice(vec![2, 2, 2], 0, 1);
+        let target_indices = vec![(4, 8)];
+        let slice_indices = slice.into_iter().collect::<Vec<_>>();
+
+        assert_eq!(target_indices, slice_indices);
+        let slice = make_slice(vec![2, 2, 2], 1, 0);
+        let target_indices = vec![(0, 2), (4, 6)];
+        let slice_indices = slice.into_iter().collect::<Vec<_>>();
+        assert_eq!(target_indices, slice_indices);
+        
+        let slice = make_slice(vec![2, 2, 2], 1, 1);
+        let target_indices = vec![(2, 4), (6, 8)];
+        let slice_indices = slice.into_iter().collect::<Vec<_>>();
+        assert_eq!(target_indices, slice_indices);
+
+        assert_eq!(target_indices, slice_indices);
+        let slice = make_slice(vec![2, 2, 2], 2, 0);
+        let target_indices = vec![(0, 1), (2, 3), (4, 5), (6, 7)];
+        let slice_indices = slice.into_iter().collect::<Vec<_>>();
+        assert_eq!(target_indices, slice_indices);
+        
+        let slice = make_slice(vec![2, 2, 2], 2, 1);
+        let target_indices = vec![(1, 2), (3, 4), (5, 6), (7, 8)];
+        let slice_indices = slice.into_iter().collect::<Vec<_>>();
+        assert_eq!(target_indices, slice_indices);
     }
 }
