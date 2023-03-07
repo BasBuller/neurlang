@@ -307,18 +307,11 @@ where
     }
 
     fn slice_vector(&self, axis: usize, index: usize) -> Vec<T> {
-        let slice = make_slice(&self.shape, axis, index);
-
-        let n_prefix = count_elements(&self.shape[0..axis]);
-        let n_axis_suffix = count_elements(&self.shape[axis..]);
-        let n_suffix = count_elements(&self.shape[(axis + 1)..]);
         let array = self.values.borrow();
-
-        let mut res_values = Vec::with_capacity(n_prefix * n_suffix);
-        for prefix_idx in 0..n_prefix {
-            let src_start_idx = (prefix_idx * n_axis_suffix) + (index * n_suffix);
-            let src_end_idx = src_start_idx + n_suffix;
-            res_values.extend_from_slice(&array[src_start_idx..src_end_idx]);
+        let slice_iter = make_slice(&self.shape, axis, index).into_iter();
+        let mut res_values = Vec::with_capacity(slice_iter.n_prefix * slice_iter.n_suffix);
+        for (start_idx, end_idx) in slice_iter {
+            res_values.extend_from_slice(&array[start_idx..end_idx]);
         }
 
         res_values
