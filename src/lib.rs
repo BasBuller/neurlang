@@ -307,6 +307,8 @@ where
     }
 
     fn slice_vector(&self, axis: usize, index: usize) -> Vec<T> {
+        let slice = make_slice(&self.shape, axis, index);
+
         let n_prefix = count_elements(&self.shape[0..axis]);
         let n_axis_suffix = count_elements(&self.shape[axis..]);
         let n_suffix = count_elements(&self.shape[(axis + 1)..]);
@@ -376,12 +378,12 @@ where
 
 pub type Shape = Vec<usize>;
 
-pub fn make_slice(shape: Shape, axis: usize, index: usize) -> Slice {
+pub fn make_slice(shape: &Shape, axis: usize, index: usize) -> Slice {
     Slice { shape, axis, index }
 }
 
-pub struct Slice {
-    shape: Shape,
+pub struct Slice<'a> {
+    shape: &'a Shape,
     axis: usize,
     index: usize,
 }
@@ -394,7 +396,7 @@ pub struct SliceIterator {
     prefix_idx: usize,
 }
 
-impl IntoIterator for Slice {
+impl<'a> IntoIterator for Slice<'a> {
     type Item = (usize, usize);
     type IntoIter = SliceIterator;
     
@@ -510,33 +512,38 @@ mod tests {
 
     #[test]
     fn slicing_iterator() {
-        let slice = make_slice(vec![2, 2, 2], 0, 0);
+        let shape = vec![2, 2, 2];
+        let slice = make_slice(&shape, 0, 0);
         let target_indices = vec![(0, 4)];
         let slice_indices = slice.into_iter().collect::<Vec<_>>();
         assert_eq!(target_indices, slice_indices);
         
-        let slice = make_slice(vec![2, 2, 2], 0, 1);
+        let shape = vec![2, 2, 2];
+        let slice = make_slice(&shape, 0, 1);
         let target_indices = vec![(4, 8)];
         let slice_indices = slice.into_iter().collect::<Vec<_>>();
-
         assert_eq!(target_indices, slice_indices);
-        let slice = make_slice(vec![2, 2, 2], 1, 0);
+
+        let shape = vec![2, 2, 2];
+        let slice = make_slice(&shape, 1, 0);
         let target_indices = vec![(0, 2), (4, 6)];
         let slice_indices = slice.into_iter().collect::<Vec<_>>();
         assert_eq!(target_indices, slice_indices);
         
-        let slice = make_slice(vec![2, 2, 2], 1, 1);
+        let shape = vec![2, 2, 2];
+        let slice = make_slice(&shape, 1, 1);
         let target_indices = vec![(2, 4), (6, 8)];
         let slice_indices = slice.into_iter().collect::<Vec<_>>();
         assert_eq!(target_indices, slice_indices);
 
-        assert_eq!(target_indices, slice_indices);
-        let slice = make_slice(vec![2, 2, 2], 2, 0);
+        let shape = vec![2, 2, 2];
+        let slice = make_slice(&shape, 2, 0);
         let target_indices = vec![(0, 1), (2, 3), (4, 5), (6, 7)];
         let slice_indices = slice.into_iter().collect::<Vec<_>>();
         assert_eq!(target_indices, slice_indices);
         
-        let slice = make_slice(vec![2, 2, 2], 2, 1);
+        let shape = vec![2, 2, 2];
+        let slice = make_slice(&shape, 2, 1);
         let target_indices = vec![(1, 2), (3, 4), (5, 6), (7, 8)];
         let slice_indices = slice.into_iter().collect::<Vec<_>>();
         assert_eq!(target_indices, slice_indices);

@@ -1,7 +1,10 @@
 use neurlang::*;
 
 fn main() {
-    let slice = make_slice(vec![2, 2, 2], 0, 0);
-    let iter = slice.into_iter().collect::<Vec<_>>();
-    println!("{iter:?}");
+    for idx in 0..4 {
+        let shape = vec![2, 2, 2, 2];
+        let slice = make_slice(&shape, idx, 1);
+        let iter = slice.into_iter().collect::<Vec<_>>();
+        println!("{iter:?}");
+    }
 }
