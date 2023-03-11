@@ -1,9 +1,16 @@
-use crate::neurlang::*;
+use crate::neurlang::{ReduceAxis, ReduceOp, ExecuteAST};
 use crate::slice::*;
 
 use num::Float;
 use rand::prelude::*;
 use std::cell::RefCell;
+
+
+pub type Shape = Vec<usize>;
+pub fn count_elements(shape: &[usize]) -> usize {
+    shape.iter().fold(1, |res, &val| res * val)
+}
+
 
 #[derive(Debug, Clone)]
 pub enum MemoryLayout {

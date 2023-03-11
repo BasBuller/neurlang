@@ -1,4 +1,5 @@
-use crate::neurlang::{Shape, count_elements};
+use crate::neurlang::count_elements;
+use crate::array::Shape;
 
 pub fn make_slice(shape: &Shape, axis: usize, index: usize) -> Slice {
     Slice { shape, axis, index }

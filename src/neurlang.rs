@@ -4,7 +4,22 @@ pub fn count_elements(shape: &[usize]) -> usize {
     shape.iter().fold(1, |res, &val| res * val)
 }
 
-pub type Shape = Vec<usize>;
+#[derive(Debug, Clone)]
+pub struct Shape {
+    dimensions: Vec<usize>
+}
+
+impl Shape {
+    fn remove(&self, index: ReduceAxis) -> Shape {
+        let mut new_dimensions = self.dimensions.clone();
+        new_dimensions.remove(index);
+        Shape{ dimensions: new_dimensions }
+    }
+    
+    fn len(&self) -> usize {
+        self.dimensions.len()
+    }
+}
 
 pub type ReduceAxis = usize;
 
@@ -79,7 +94,7 @@ impl<T: ExecuteAST> ASTNode<T> {
     // Binary
     pub fn add(self: Rc<Self>, right_value: Rc<ASTNode<T>>) -> Rc<ASTNode<T>> {
         assert!(
-            self.shape == right_value.shape,
+            self.shape.dimensions == right_value.shape.dimensions,
             "Left tensor (shape: {:?}) and right tensor (shape: {:?}) not of equal shape",
             self.shape,
             right_value.shape

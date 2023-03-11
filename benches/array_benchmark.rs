@@ -1,4 +1,3 @@
-use neurlang::neurlang::*;
 use neurlang::array::*;
 
 use criterion::{criterion_group, criterion_main, Criterion};
