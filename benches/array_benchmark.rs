@@ -4,24 +4,33 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use num::Float;
 
 // Some reference implementations
+pub fn negate_n<const N: usize>(values: &[f32; N], target: &mut [f32; N]) {
+    values.iter().zip(target.iter_mut()).for_each(|(&lval, res)| *res = -lval);
+}
 pub fn negate<T: Float>(values: &[T]) -> Vec<T> {
     values.iter().map(|&value| -value).collect::<Vec<_>>()
 }
-pub fn inpl_negate<T: Float>(values: &mut [T]) {
-    values.iter_mut().map(|value| *value = -(*value)).count();
+pub fn inpl_negate_n<const N: usize>(values: &mut [f32; N]) {
+    values.iter_mut().for_each(|value| *value = -(*value));
 }
+pub fn inpl_negate<T: Float>(values: &mut [T]) {
+    values.iter_mut().for_each(|value| *value = -(*value));
+}
+
 pub fn exp<T: Float>(values: &[T]) -> Vec<T> {
     values.iter().map(|value| value.exp()).collect::<Vec<_>>()
 }
 pub fn inpl_exp<T: Float>(values: &mut [T]) {
     values.iter_mut().map(|value| *value = value.exp()).count();
 }
+
 pub fn ln<T: Float>(values: &[T]) -> Vec<T> {
     values.iter().map(|value| value.ln()).collect::<Vec<_>>()
 }
 pub fn inpl_ln<T: Float>(values: &mut [T]) {
     values.iter_mut().map(|value| *value = value.ln()).count();
 }
+
 pub fn add<T: Float>(lvalues: &[T], rvalues: &[T]) -> Vec<T> {
     lvalues
         .iter()
@@ -42,14 +51,20 @@ fn negate_benchmark(c: &mut Criterion) {
     let shape = vec![512, 1024];
     let nelem = shape.iter().fold(1, |res, &val| res * val);
     let (array, mut vec) = setup(shape);
+    
+    const N_ELEM: usize = 512 * 1024;
+    let raw_arr = Box::new([1.0; N_ELEM]);
+    let mut target_raw_arr = Box::new([1.0; N_ELEM]);
 
     let mut group = c.benchmark_group("Negate new object");
+    group.bench_function("Raw Array", |b| b.iter(|| negate_n(&raw_arr, &mut target_raw_arr)));
     group.bench_function("Array", |b| b.iter(|| array.negate()));
     group.bench_function("Vector", |b| b.iter(|| negate(&vec)));
     group.bench_function("Slice", |b| b.iter(|| negate(&vec[0..nelem])));
     group.finish();
 
     let mut group = c.benchmark_group("Negate in place");
+    group.bench_function("Raw Array", |b| b.iter(|| inpl_negate_n(&mut target_raw_arr)));
     group.bench_function("Array", |b| b.iter(|| array.inpl_negate()));
     group.bench_function("Vector", |b| b.iter(|| inpl_negate(&mut vec)));
     group.bench_function("Slice", |b| b.iter(|| inpl_negate(&mut vec[0..nelem])));
