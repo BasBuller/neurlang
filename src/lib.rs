@@ -1,3 +1,3 @@
 pub mod neurlang;
-pub mod slice;
+pub mod indexing;
 pub mod array;

@@ -1,14 +1,18 @@
-use crate::neurlang::{ReduceAxis, ReduceOp, ExecuteAST};
-use crate::slice::*;
+use crate::neurlang::{Shape, ReduceAxis, ReduceOp, ExecuteAST};
+use crate::indexing::*;
 
 use num::Float;
 use rand::prelude::*;
 use std::cell::RefCell;
 
 
-pub type Shape = Vec<usize>;
 pub fn count_elements(shape: &[usize]) -> usize {
     shape.iter().fold(1, |res, &val| res * val)
+}
+
+#[derive(Debug)]
+pub struct Index {
+    index: Vec<usize>,
 }
 
 
@@ -30,7 +34,7 @@ where
 
 pub fn rand_f32(shape: Shape) -> Array<f32> {
     let mut rng = rand::thread_rng();
-    let total_elems = shape.iter().fold(1, |res, val| res * (*val));
+    let total_elems= shape.nelem();
     let values = (0..total_elems).map(|_| rng.gen()).collect::<Vec<_>>();
     Array::new(values, shape)
 }
@@ -115,11 +119,12 @@ where
 
     // Axis reducing operations
     fn reduce_shape(&self, axis: usize) -> Shape {
-        self.shape[0..axis]
+        let new_dimensions = self.shape.dimensions[0..axis]
             .iter()
-            .chain(self.shape[(axis + 1)..].iter())
+            .chain(self.shape.dimensions[(axis + 1)..].iter())
             .map(|&val| val)
-            .collect::<Vec<_>>()
+            .collect::<Vec<_>>();
+        Shape::new(new_dimensions)
     }
 
     fn slice_vector(&self, axis: usize, index: usize) -> Vec<T> {
@@ -143,15 +148,15 @@ where
     where
         F: Fn((&mut T, &T)),
     {
-        let n_prefix = count_elements(&self.shape[0..axis]);
-        let n_axis_suffix = count_elements(&self.shape[axis..]);
-        let n_suffix = count_elements(&self.shape[(axis + 1)..]);
+        let n_prefix = count_elements(&self.shape.dimensions[0..axis]);
+        let n_axis_suffix = count_elements(&self.shape.dimensions[axis..]);
+        let n_suffix = count_elements(&self.shape.dimensions[(axis + 1)..]);
         let array = self.values.borrow();
 
         let res_shape = self.reduce_shape(axis);
         let mut res_values = self.slice_vector(axis, 0);
         for prefix_idx in 0..n_prefix {
-            for index in 1..self.shape[axis] {
+            for index in 1..self.shape.dimensions[axis] {
                 let src_start_idx = (prefix_idx * n_axis_suffix) + (index * n_suffix);
                 let src_end_idx = src_start_idx + n_suffix;
                 let src_slice = &array[src_start_idx..src_end_idx];
@@ -232,22 +237,25 @@ mod tests {
     #[test]
     fn negate() {
         let target: Vec<f32> = vec![-1.0, -2.0, -3.0];
-        let arr1 = Array::<f32>::new(vec![1.0, 2.0, 3.0], vec![3]).negate();
+        let shape = Shape::new(vec![3]);
+        let arr1 = Array::<f32>::new(vec![1.0, 2.0, 3.0], shape).negate();
         compare_vecs(&target, &arr1.values.borrow());
     }
 
     #[test]
     fn add() {
         let target: Vec<f32> = vec![5.0, 7.0, 9.0];
-        let arr1 = Array::<f32>::new(vec![1.0, 2.0, 3.0], vec![3]);
-        let arr2 = Array::<f32>::new(vec![4.0, 5.0, 6.0], vec![3]);
+        let shape = Shape::new(vec![3]);
+        let arr1 = Array::<f32>::new(vec![1.0, 2.0, 3.0], shape.clone());
+        let arr2 = Array::<f32>::new(vec![4.0, 5.0, 6.0], shape);
         let arr3 = arr1.add(&arr2);
         compare_vecs(&target, &arr3.values.borrow());
     }
 
     #[test]
     fn slice() {
-        let arr = Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], vec![2, 2, 2]);
+        let shape = Shape::new(vec![2, 2, 2]);
+        let arr = Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], shape);
 
         let arr0 = arr.slice(0, 0);
         let target0: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0];
@@ -264,7 +272,8 @@ mod tests {
 
     #[test]
     fn reduce_sum() {
-        let arr = Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], vec![2, 2, 2]);
+        let shape = Shape::new(vec![2, 2, 2]);
+        let arr = Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], shape);
 
         let arr0 = arr.reduce_sum(0);
         let target0: Vec<f32> = vec![6.0, 8.0, 10.0, 12.0];
@@ -281,7 +290,8 @@ mod tests {
 
     #[test]
     fn reduce_max() {
-        let arr = Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], vec![2, 2, 2]);
+        let shape = Shape::new(vec![2, 2, 2]);
+        let arr = Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], shape);
 
         let arr0 = arr.reduce_max(0);
         let target0: Vec<f32> = vec![5.0, 6.0, 7.0, 8.0];

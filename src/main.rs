@@ -1,3 +1,3 @@
-fn main() {
-    println!("BaasB!");
-}
+use neurlang::indexing::*;
+
+fn main() {}

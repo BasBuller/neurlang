@@ -6,18 +6,26 @@ pub fn count_elements(shape: &[usize]) -> usize {
 
 #[derive(Debug, Clone)]
 pub struct Shape {
-    dimensions: Vec<usize>
+    pub dimensions: Vec<usize>
 }
 
 impl Shape {
-    fn remove(&self, index: ReduceAxis) -> Shape {
+    pub fn new(dimensions: Vec<usize>) -> Self {
+        Shape{ dimensions }
+    }
+
+    pub fn remove(&self, index: ReduceAxis) -> Shape {
         let mut new_dimensions = self.dimensions.clone();
         new_dimensions.remove(index);
         Shape{ dimensions: new_dimensions }
     }
     
-    fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.dimensions.len()
+    }
+    
+    pub fn nelem(&self) -> usize {
+        count_elements(&self.dimensions)
     }
 }
 

@@ -1,16 +1,17 @@
 use neurlang::array::*;
+use neurlang::neurlang::Shape;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use num::Float;
 
 // Some reference implementations
-pub fn negate_n<const N: usize>(values: &[f32; N], target: &mut [f32; N]) {
+pub fn negate_arr_raw<const N: usize>(values: &[f32; N], target: &mut [f32; N]) {
     values.iter().zip(target.iter_mut()).for_each(|(&lval, res)| *res = -lval);
 }
 pub fn negate<T: Float>(values: &[T]) -> Vec<T> {
     values.iter().map(|&value| -value).collect::<Vec<_>>()
 }
-pub fn inpl_negate_n<const N: usize>(values: &mut [f32; N]) {
+pub fn inpl_negate_arr_raw<const N: usize>(values: &mut [f32; N]) {
     values.iter_mut().for_each(|value| *value = -(*value));
 }
 pub fn inpl_negate<T: Float>(values: &mut [T]) {
@@ -39,8 +40,9 @@ pub fn add<T: Float>(lvalues: &[T], rvalues: &[T]) -> Vec<T> {
         .collect::<Vec<_>>()
 }
 
-fn setup(shape: Shape) -> (Array<f32>, Vec<f32>) {
-    let nelem = shape.iter().fold(1, |res, &val| res * val);
+fn setup(dimensions: Vec<usize>) -> (Array<f32>, Vec<f32>) {
+    let shape = Shape::new(dimensions);
+    let nelem = shape.nelem();
     let array = rand_f32(shape.clone());
     let vec = (0..nelem).map(|val| val as f32 / 100.0).collect::<Vec<_>>();
 
@@ -57,14 +59,14 @@ fn negate_benchmark(c: &mut Criterion) {
     let mut target_raw_arr = Box::new([1.0; N_ELEM]);
 
     let mut group = c.benchmark_group("Negate new object");
-    group.bench_function("Raw Array", |b| b.iter(|| negate_n(&raw_arr, &mut target_raw_arr)));
+    group.bench_function("Raw Array", |b| b.iter(|| negate_arr_raw(&raw_arr, &mut target_raw_arr)));
     group.bench_function("Array", |b| b.iter(|| array.negate()));
     group.bench_function("Vector", |b| b.iter(|| negate(&vec)));
     group.bench_function("Slice", |b| b.iter(|| negate(&vec[0..nelem])));
     group.finish();
 
     let mut group = c.benchmark_group("Negate in place");
-    group.bench_function("Raw Array", |b| b.iter(|| inpl_negate_n(&mut target_raw_arr)));
+    group.bench_function("Raw Array", |b| b.iter(|| inpl_negate_arr_raw(&mut target_raw_arr)));
     group.bench_function("Array", |b| b.iter(|| array.inpl_negate()));
     group.bench_function("Vector", |b| b.iter(|| inpl_negate(&mut vec)));
     group.bench_function("Slice", |b| b.iter(|| inpl_negate(&mut vec[0..nelem])));
