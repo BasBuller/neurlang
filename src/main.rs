@@ -27,18 +27,33 @@ impl<const N: usize> Iterator for TensorIterator<N> {
     fn next(&mut self) -> Option<Self::Item> {
         if self.count < self.max_count - 1{
             let res = self.return_index.clone();
-
-            let mut idx = 0;
-            if self.return_index[idx] < self.shape.dimensions[idx] {
-                self.return_index[idx] += 1;
-            }
-            while self.return_index[idx] == self.shape.dimensions[idx] {
-                self.return_index[idx] = 0;
-                self.return_index[idx + 1] += 1;
-                idx += 1;
-            }
-            self.count += 1;
             
+            match self.memory_layout {
+                MemoryLayout::ColumnMajor => {
+                    let mut idx = 0;
+                    if self.return_index[idx] < self.shape.dimensions[idx] {
+                        self.return_index[idx] += 1;
+                    }
+                    while self.return_index[idx] == self.shape.dimensions[idx] {
+                        self.return_index[idx] = 0;
+                        self.return_index[idx + 1] += 1;
+                        idx += 1;
+                    }
+                },
+                MemoryLayout::RowMajor => {
+                    let mut idx = N - 1;
+                    if self.return_index[idx] < self.shape.dimensions[idx] {
+                        self.return_index[idx] += 1;
+                    }
+                    while self.return_index[idx] == self.shape.dimensions[idx] {
+                        self.return_index[idx] = 0;
+                        self.return_index[idx - 1] += 1;
+                        idx -= 1;
+                    }
+                },
+            };
+            
+            self.count += 1;
             Some(res)
         } else if self.count == self.max_count - 1 {
             self.count += 1;
