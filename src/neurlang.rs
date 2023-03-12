@@ -1,7 +1,10 @@
 use std::rc::Rc;
+use crate::utils::count_elements;
 
-pub fn count_elements(shape: &[usize]) -> usize {
-    shape.iter().fold(1, |res, &val| res * val)
+#[derive(Debug, Clone)]
+pub enum MemoryLayout {
+    ColumnMajor,
+    RowMajor,
 }
 
 #[derive(Debug)]
@@ -39,6 +42,8 @@ impl Shape {
         count_elements(&self.dimensions)
     }
 }
+
+
 
 pub type ReduceAxis = usize;
 

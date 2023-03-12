@@ -1,20 +1,10 @@
 use crate::indexing::*;
-use crate::neurlang::{ExecuteAST, Index, ReduceAxis, ReduceOp, Shape};
-use crate::outer_product;
+use crate::neurlang::{ExecuteAST, Index, ReduceAxis, ReduceOp, Shape, MemoryLayout};
+use crate::utils::count_elements;
 
 use num::Float;
 use rand::prelude::*;
 use std::cell::RefCell;
-
-pub fn count_elements(shape: &[usize]) -> usize {
-    shape.iter().fold(1, |res, &val| res * val)
-}
-
-#[derive(Debug, Clone)]
-pub enum MemoryLayout {
-    ColumnMajor,
-    RowMajor,
-}
 
 // fn column_major_indices(shape: &Shape) -> Vec<Index> {
 //     let indices: Vec<Vec<usize>> = Vec::with_capacity(shape.nelem());
