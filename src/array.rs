@@ -1,15 +1,10 @@
 use crate::indexing::*;
-use crate::neurlang::{ExecuteAST, Index, MemoryLayout, ReduceAxis, ReduceOp, Shape};
+use crate::neurlang::{ExecuteAST, MemoryLayout, ReduceAxis, ReduceOp, Shape};
 use crate::utils::count_elements;
 
 use num::Float;
 use rand::prelude::*;
 use std::cell::RefCell;
-
-// fn column_major_indices(shape: &Shape) -> Vec<Index> {
-//     let indices: Vec<Vec<usize>> = Vec::with_capacity(shape.nelem());
-
-// }
 
 #[derive(Debug, Clone)]
 pub struct Array<T>

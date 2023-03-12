@@ -18,6 +18,7 @@ When performing matrix multiplication you ideally want to iterate over the **row
 ## To Do's
 - [x] Update Shape implementation used in Array
 - [ ] Implement conversion between row and column major storage formats
-    - [ ] Implement indexing and then simply create an indices iterator
+    - [x] Implement indexing and then simply create an indices iterator
 - [ ] Enable slicing in column major arrays by taking $array_len - row_major_indexer$
 - [ ] Enable BLAS matmul
+- [ ] Greatly improve tensor indexing code quality

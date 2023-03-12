@@ -7,12 +7,12 @@ pub enum MemoryLayout {
     RowMajor,
 }
 
-#[derive(Debug)]
-pub struct Index {
-    pub index: Vec<usize>,
+#[derive(Debug, PartialEq, Eq)]
+pub struct Index<const N: usize> {
+    pub index: [usize; N],
 }
-impl Index {
-    pub fn new(index: Vec<usize>) -> Index {
+impl<const N: usize> Index<N> {
+    pub fn new(index: [usize; N]) -> Self {
         Index { index }
     }
 }
