@@ -314,6 +314,7 @@ name = "neurlang"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "itertools",
  "ndarray",
  "num",
  "rand",

@@ -16,7 +16,8 @@ When performing matrix multiplication you ideally want to iterate over the **row
     - These relations/constraints can be very well captured in a domain-specific mathematical language, this is exactly what category theory excels at. Would be very cool to have a form of mathematical reasoning enabling me to highly optimize my ASTs. I probably do need an estimate of the cost of specific attribute combinations in order to turn graph refinement into a proper optimization problem.
     
 ## To Do's
-- [ ] Update Shape implementation used in Array
+- [x] Update Shape implementation used in Array
 - [ ] Implement conversion between row and column major storage formats
     - [ ] Implement indexing and then simply create an indices iterator
+- [ ] Enable slicing in column major arrays by taking $array_len - row_major_indexer$
 - [ ] Enable BLAS matmul

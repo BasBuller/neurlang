@@ -1,26 +1,25 @@
-use crate::neurlang::{Shape, ReduceAxis, ReduceOp, ExecuteAST};
 use crate::indexing::*;
+use crate::neurlang::{ExecuteAST, Index, ReduceAxis, ReduceOp, Shape};
+use crate::outer_product;
 
 use num::Float;
 use rand::prelude::*;
 use std::cell::RefCell;
 
-
 pub fn count_elements(shape: &[usize]) -> usize {
     shape.iter().fold(1, |res, &val| res * val)
 }
-
-#[derive(Debug)]
-pub struct Index {
-    index: Vec<usize>,
-}
-
 
 #[derive(Debug, Clone)]
 pub enum MemoryLayout {
     ColumnMajor,
     RowMajor,
 }
+
+// fn column_major_indices(shape: &Shape) -> Vec<Index> {
+//     let indices: Vec<Vec<usize>> = Vec::with_capacity(shape.nelem());
+
+// }
 
 #[derive(Debug, Clone)]
 pub struct Array<T>
@@ -34,7 +33,7 @@ where
 
 pub fn rand_f32(shape: Shape) -> Array<f32> {
     let mut rng = rand::thread_rng();
-    let total_elems= shape.nelem();
+    let total_elems = shape.nelem();
     let values = (0..total_elems).map(|_| rng.gen()).collect::<Vec<_>>();
     Array::new(values, shape)
 }
@@ -190,7 +189,7 @@ where
 }
 
 impl<T> ExecuteAST for Array<T>
-where 
+where
     T: Float + std::fmt::Debug,
 {
     fn value_v(&self) -> Self {
@@ -213,13 +212,11 @@ where
     }
     fn reduce_v(&self, axis: ReduceAxis, op: ReduceOp) -> Self {
         match op {
-            ReduceOp::Sum => {self.reduce_sum(axis)},
-            ReduceOp::Max => {self.reduce_max(axis)},
+            ReduceOp::Sum => self.reduce_sum(axis),
+            ReduceOp::Max => self.reduce_max(axis),
         }
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {
