@@ -1,6 +1,9 @@
-use crate::neurlang::Shape;
+use crate::neurlang::{Index, Shape};
 use crate::utils::count_elements;
 
+// //////////////////
+// Slicing
+// //////////////////
 pub fn make_slice(shape: &Shape, axis: usize, index: usize) -> Slice {
     Slice { shape, axis, index }
 }
@@ -96,3 +99,7 @@ mod tests {
         assert_eq!(target_indices, slice_indices);
     }
 }
+
+// //////////////////
+// Indices for both Row and Column major
+// //////////////////

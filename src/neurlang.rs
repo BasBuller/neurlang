@@ -1,5 +1,5 @@
-use std::rc::Rc;
 use crate::utils::count_elements;
+use std::rc::Rc;
 
 #[derive(Debug, Clone)]
 pub enum MemoryLayout {
@@ -42,8 +42,6 @@ impl Shape {
         count_elements(&self.dimensions)
     }
 }
-
-
 
 pub type ReduceAxis = usize;
 

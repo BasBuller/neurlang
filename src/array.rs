@@ -1,5 +1,5 @@
 use crate::indexing::*;
-use crate::neurlang::{ExecuteAST, Index, ReduceAxis, ReduceOp, Shape, MemoryLayout};
+use crate::neurlang::{ExecuteAST, Index, MemoryLayout, ReduceAxis, ReduceOp, Shape};
 use crate::utils::count_elements;
 
 use num::Float;
