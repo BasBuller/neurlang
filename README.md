@@ -17,8 +17,14 @@ When performing matrix multiplication you ideally want to iterate over the **row
     
 ## To Do's
 - [x] Update Shape implementation used in Array
-- [ ] Implement conversion between row and column major storage formats
-    - [x] Implement indexing and then simply create an indices iterator
-- [ ] Enable slicing in column major arrays by taking $array_len - row_major_indexer$
+- [ ] Implement permutation/reshape
+- [ ] Implement matmul in pure Rust
+- [ ] Maybe I need to implement the tensorproduct like in Numpy? That enables essentially all types of tensor operations
+    - [ ] If done properly this can also be rather speedy, because I can write logic to reason about how to optimize the iteration
 - [ ] Enable BLAS matmul
 - [ ] Greatly improve tensor indexing code quality
+
+### When implement column major ordering, if at all?
+- [ ] Enable slicing in column major arrays by taking $array_len - row_major_indexer$
+- [ ] Implement conversion between row and column major storage formats
+    - [x] Implement indexing and then simply create an indices iterator

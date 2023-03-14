@@ -1,6 +1,7 @@
 use crate::indexing::*;
-use crate::neurlang::{ExecuteAST, MemoryLayout, ReduceAxis, ReduceOp, Shape};
+use crate::neurlang::{ArrayIndex, ExecuteAST, MemoryLayout, ReduceAxis, ReduceOp, Shape};
 use crate::utils::count_elements;
+use std::ops::Index;
 
 use num::Float;
 use rand::prelude::*;
@@ -171,6 +172,10 @@ where
             }
         })
     }
+
+    pub fn matmul(&self, right_array: &Array<T>) -> Self {
+        self.clone()
+    }
 }
 
 impl<T> ExecuteAST for Array<T>
@@ -207,7 +212,7 @@ where
 mod tests {
     use super::*;
 
-    fn compare_vecs(target: &Vec<f32>, values: &Vec<f32>) {
+    fn compare_vecs<T: PartialEq>(target: &Vec<T>, values: &Vec<T>) {
         let compared = target
             .iter()
             .zip(values.iter())
@@ -286,5 +291,16 @@ mod tests {
         let arr2 = arr.reduce_max(2);
         let target2: Vec<f32> = vec![2.0, 4.0, 6.0, 8.0];
         compare_vecs(&target2, &arr2.values.borrow());
+    }
+
+    #[test]
+    fn matmul() {
+        let l_arr = Array::<f32>::new(vec![2.0; 6], Shape::new(vec![2, 3]));
+        let r_arr = Array::<f32>::new(vec![3.0; 12], Shape::new(vec![3, 4]));
+        let res = l_arr.matmul(&r_arr);
+        let target_values = vec![18.0; 8];
+        compare_vecs(&target_values, &res.values.borrow());
+        let target_shape = vec![2, 4];
+        compare_vecs(&target_shape, &res.shape.dimensions);
     }
 }

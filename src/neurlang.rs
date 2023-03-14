@@ -8,12 +8,12 @@ pub enum MemoryLayout {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct Index<const N: usize> {
+pub struct ArrayIndex<const N: usize> {
     pub index: [usize; N],
 }
-impl<const N: usize> Index<N> {
+impl<const N: usize> ArrayIndex<N> {
     pub fn new(index: [usize; N]) -> Self {
-        Index { index }
+        ArrayIndex { index }
     }
 }
 
@@ -80,6 +80,30 @@ pub enum ASTOp<T: ExecuteAST> {
         left_value: Rc<ASTNode<T>>,
         right_value: Rc<ASTNode<T>>,
     },
+    // Sub {
+    //     left_value: Rc<ASTNode<T>>,
+    //     right_value: Rc<ASTNode<T>>,
+    // },
+    // Mul {
+    //     left_value: Rc<ASTNode<T>>,
+    //     right_value: Rc<ASTNode<T>>,
+    // },
+    // Div {
+    //     left_value: Rc<ASTNode<T>>,
+    //     right_value: Rc<ASTNode<T>>,
+    // },
+    // Pow {
+    //     left_value: Rc<ASTNode<T>>,
+    //     right_value: Rc<ASTNode<T>>,
+    // },
+    // CompareEqual {
+    //     left_value: Rc<ASTNode<T>>,
+    //     right_value: Rc<ASTNode<T>>,
+    // },
+    // Max {
+    //     left_value: Rc<ASTNode<T>>,
+    //     right_value: Rc<ASTNode<T>>,
+    // },
 
     // Reduce
     Reduce {
@@ -151,7 +175,7 @@ impl<T: ExecuteAST> ASTNode<T> {
             self.shape.len()
         );
 
-        let mut new_shape = self.shape.clone();
+        let new_shape = self.shape.clone();
         new_shape.remove(dim);
         Rc::new(ASTNode {
             op: ASTOp::Reduce {
@@ -196,8 +220,24 @@ pub trait ExecuteAST {
 
     // Binary
     fn add_v(&self, right_value: &Self) -> Self;
+    // fn sub_v(&self, right_value: &Self) -> Self;
+    // fn mul_v(&self, right_value: &Self) -> Self;
+    // fn div_v(&self, right_value: &Self) -> Self;
+    // fn pow_v(&self, right_value: &Self) -> Self;
+    // fn compare_equal_v(&self, right_value: &Self) -> Self;
     fn max_v(&self, right_value: &Self) -> Self;
 
     // Reduce
     fn reduce_v(&self, axis: ReduceAxis, op: ReduceOp) -> Self;
+
+    // // Movement ops
+    // fn expand_v(&self, axis: usize) -> Self;
+    // fn reshape_v(&self, new_shape: &Shape) -> Self;
+    // fn permute_v(&self, axis_ordering: &[usize]) -> Self;
+    // // fn pad_v(&self, ...) -> Self;
+    // // fn shrink_v(&self, ...) -> Self;
+    // // fn stride_v(&self, ...) -> Self;
+
+    // // Maybe want to include this? Does make for a way nicer experience
+    // fn tensordot_v(&self, right_value: &Self, left_axes: &[usize], right_axes: &[usize]) -> Self;
 }

@@ -1,4 +1,4 @@
-use crate::neurlang::{Index, MemoryLayout, Shape};
+use crate::neurlang::{ArrayIndex, MemoryLayout, Shape};
 use crate::utils::count_elements;
 
 // //////////////////
@@ -8,6 +8,7 @@ pub fn make_slice(shape: &Shape, axis: usize, index: usize) -> Slice {
     Slice { shape, axis, index }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct Slice<'a> {
     shape: &'a Shape,
     axis: usize,
@@ -81,11 +82,11 @@ impl<const N: usize> TensorIterator<N> {
 }
 
 impl<const N: usize> Iterator for TensorIterator<N> {
-    type Item = Index<N>;
+    type Item = ArrayIndex<N>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.count < self.max_count - 1 {
-            let res = Index::new(self.return_index.clone());
+            let res = ArrayIndex::new(self.return_index.clone());
 
             match self.memory_layout {
                 MemoryLayout::ColumnMajor => {
@@ -116,7 +117,7 @@ impl<const N: usize> Iterator for TensorIterator<N> {
             Some(res)
         } else if self.count == self.max_count - 1 {
             self.count += 1;
-            Some(Index::new(self.return_index.clone()))
+            Some(ArrayIndex::new(self.return_index.clone()))
         } else {
             None
         }
@@ -183,7 +184,7 @@ mod tests {
             [1, 1, 1],
         ]
         .iter()
-        .map(|&vals| Index::new(vals))
+        .map(|&vals| ArrayIndex::new(vals))
         .collect::<Vec<_>>();
         assert_eq!(indices, target_indices);
 
@@ -202,7 +203,7 @@ mod tests {
             [1, 1, 1],
         ]
         .iter()
-        .map(|&vals| Index::new(vals))
+        .map(|&vals| ArrayIndex::new(vals))
         .collect::<Vec<_>>();
         assert_eq!(indices, target_indices);
     }
