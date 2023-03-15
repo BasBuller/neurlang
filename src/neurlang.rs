@@ -111,10 +111,28 @@ pub enum ASTOp<T: ExecuteAST> {
         value: Rc<ASTNode<T>>,
         dim: usize,
     },
+    // Shrink {
+    //     value: Rc<ASTNode<T>>,
+    //     dim: usize,
+    // },
     // Reshape {
     //     value: Rc<ASTNode<T>>,
     //     new_shape: Shape,
     // },
+    // Permute {
+    //     value: Rc<ASTNode<T>>,
+    //     dim_order: Vec<usize>,
+    // },
+    // Pad {
+    //     value: Rc<ASTNode<T>>,
+    //     dim: usize,
+    //     pad_value: T,
+    // },
+    // Stride {
+    //     value: Rc<ASTNode<T>>,
+    //     dim: usize,
+    //     stride_value: usize,
+    // }
 }
 
 #[derive(Debug)]
