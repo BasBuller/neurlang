@@ -12,7 +12,7 @@ where
     T: Float,
 {
     pub values: RefCell<Vec<T>>,
-    pub shape: Shape,
+    pub shape: RefCell<Shape>,
     pub layout: MemoryLayout,
 }
 
@@ -31,7 +31,7 @@ where
     pub fn new(values: Vec<T>, shape: Shape) -> Self {
         Array {
             values: RefCell::new(values),
-            shape: shape,
+            shape: RefCell::new(shape),
             layout: MemoryLayout::RowMajor,
         }
     }
@@ -106,9 +106,9 @@ where
 
     // Axis reducing operations
     fn reduce_shape(&self, axis: usize) -> Shape {
-        let new_dimensions = self.shape.dimensions[0..axis]
+        let new_dimensions = self.shape.borrow().dimensions[0..axis]
             .iter()
-            .chain(self.shape.dimensions[(axis + 1)..].iter())
+            .chain(self.shape.borrow().dimensions[(axis + 1)..].iter())
             .map(|&val| val)
             .collect::<Vec<_>>();
         Shape::new(new_dimensions)
@@ -116,7 +116,7 @@ where
 
     fn slice_vector(&self, axis: usize, index: usize) -> Vec<T> {
         let array = self.values.borrow();
-        let slice_iter = make_slice(&self.shape, axis, index).into_iter();
+        let slice_iter = make_slice(&self.shape.borrow(), axis, index).into_iter();
         let mut res_values = Vec::with_capacity(slice_iter.n_prefix * slice_iter.n_suffix);
         for (start_idx, end_idx) in slice_iter {
             res_values.extend_from_slice(&array[start_idx..end_idx]);
@@ -135,15 +135,15 @@ where
     where
         F: Fn((&mut T, &T)),
     {
-        let n_prefix = count_elements(&self.shape.dimensions[0..axis]);
-        let n_axis_suffix = count_elements(&self.shape.dimensions[axis..]);
-        let n_suffix = count_elements(&self.shape.dimensions[(axis + 1)..]);
+        let n_prefix = count_elements(&self.shape.borrow().dimensions[0..axis]);
+        let n_axis_suffix = count_elements(&self.shape.borrow().dimensions[axis..]);
+        let n_suffix = count_elements(&self.shape.borrow().dimensions[(axis + 1)..]);
         let array = self.values.borrow();
 
         let res_shape = self.reduce_shape(axis);
         let mut res_values = self.slice_vector(axis, 0);
         for prefix_idx in 0..n_prefix {
-            for index in 1..self.shape.dimensions[axis] {
+            for index in 1..self.shape.borrow().dimensions[axis] {
                 let src_start_idx = (prefix_idx * n_axis_suffix) + (index * n_suffix);
                 let src_end_idx = src_start_idx + n_suffix;
                 let src_slice = &array[src_start_idx..src_end_idx];
@@ -181,7 +181,7 @@ where
     
     /// TODO Fix this horrible implementation to prevent copying
     pub fn expand(&self, dim: usize) -> Self {
-        let mut new_shape = self.shape.clone();
+        let mut new_shape = self.shape.borrow().clone();
         new_shape.dimensions.insert(dim, 1);
         Self::new(
             self.values.borrow().clone(),
@@ -313,12 +313,12 @@ mod tests {
         let arr = Array::<f32>::new(vec![2.0; 6], Shape::new(vec![6]));
         let arr = arr.expand(0);
         let target = vec![1, 6];
-        compare_vecs(&target, &arr.shape.dimensions);
+        compare_vecs(&target, &arr.shape.borrow().dimensions);
 
         let arr = Array::<f32>::new(vec![2.0; 6], Shape::new(vec![6]));
         let arr = arr.expand(1);
         let target = vec![6, 1];
-        compare_vecs(&target, &arr.shape.dimensions);
+        compare_vecs(&target, &arr.shape.borrow().dimensions);
     }
 
     #[test]
@@ -329,6 +329,6 @@ mod tests {
         let target_values = vec![18.0; 8];
         compare_vecs(&target_values, &res.values.borrow());
         let target_shape = vec![2, 4];
-        compare_vecs(&target_shape, &res.shape.dimensions);
+        compare_vecs(&target_shape, &res.shape.borrow().dimensions);
     }
 }
