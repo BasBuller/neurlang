@@ -5,13 +5,14 @@ use crate::utils::count_elements;
 use num::Float;
 use rand::prelude::*;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 #[derive(Debug, Clone)]
 pub struct Array<T>
 where
     T: Float,
 {
-    pub values: RefCell<Vec<T>>,
+    pub values: Rc<RefCell<Vec<T>>>,
     pub shape: RefCell<Shape>,
     pub layout: MemoryLayout,
 }
@@ -30,14 +31,14 @@ where
     // Utils
     pub fn new(values: Vec<T>, shape: Shape) -> Self {
         Array {
-            values: RefCell::new(values),
+            values: Rc::new(RefCell::new(values)),
             shape: RefCell::new(shape),
             layout: MemoryLayout::RowMajor,
         }
     }
-    fn dupe(&self, values: Vec<T>) -> Self {
+    fn duplicate(&self, values: Vec<T>) -> Self {
         Array {
-            values: RefCell::new(values),
+            values: Rc::new(RefCell::new(values)),
             shape: self.shape.clone(),
             layout: self.layout.clone(),
         }
@@ -49,7 +50,7 @@ where
         F: Fn(&T) -> T,
     {
         let iterated = self.values.borrow().iter().map(unary_f).collect::<Vec<_>>();
-        self.dupe(iterated)
+        self.duplicate(iterated)
     }
     pub fn negate(&self) -> Self {
         self.unary_op(|&value| -value)
@@ -89,7 +90,7 @@ where
             .zip(right_array.values.borrow().iter())
             .map(binary_f)
             .collect::<Vec<_>>();
-        self.dupe(res_values)
+        self.duplicate(res_values)
     }
     pub fn add(&self, right_array: &Self) -> Self {
         self.binary_op(right_array, |(&lval, &rval)| lval + rval)
