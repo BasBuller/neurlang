@@ -107,14 +107,14 @@ pub enum ASTOp<T: ExecuteAST> {
     },
     
     // Movement ops
-    Expand {
+    Unsqueeze {
         value: Rc<ASTNode<T>>,
         dim: usize,
     },
-    // Shrink {
-    //     value: Rc<ASTNode<T>>,
-    //     dim: usize,
-    // },
+    Squeeze {
+        value: Rc<ASTNode<T>>,
+        dim: usize,
+    },
     // Reshape {
     //     value: Rc<ASTNode<T>>,
     //     new_shape: Shape,
@@ -215,7 +215,7 @@ impl<T: ExecuteAST> ASTNode<T> {
         })
     }
     
-    pub fn expand(self: Rc<Self>, dim: usize) -> Rc<ASTNode<T>> {
+    pub fn unsqueeze(self: Rc<Self>, dim: usize) -> Rc<ASTNode<T>> {
         assert!(
             dim <= self.shape.dimensions.len(),
             "Expanded dimension larger than existing shape",
@@ -224,12 +224,32 @@ impl<T: ExecuteAST> ASTNode<T> {
         let mut new_shape = self.shape.clone();
         new_shape.dimensions.insert(dim, 1);
         Rc::new(ASTNode {
-            op: ASTOp::Expand{
+            op: ASTOp::Unsqueeze{
                 value: self,
                 dim: dim,
             },
             shape: new_shape })
     }
+    pub fn squeeze(self: Rc<Self>, dim: usize) -> Rc<ASTNode<T>> {
+        assert!(
+            dim <= self.shape.dimensions.len(),
+            "Expanded dimension larger than existing shape",
+        );
+        assert!(
+            self.shape.dimensions[dim] == 1,
+            "Dimension to be squeezed is not 1",
+        );
+        
+        let mut new_shape = self.shape.clone();
+        new_shape.dimensions.remove(dim);
+        Rc::new(ASTNode {
+            op: ASTOp::Squeeze{
+                value: self,
+                dim: dim,
+            },
+            shape: new_shape })
+    }
+
 
     // Utils
     pub fn new(value: T, shape: Shape) -> Rc<ASTNode<T>> {
@@ -249,7 +269,8 @@ impl<T: ExecuteAST> ASTNode<T> {
                 right_value,
             } => left_value.execute().add_v(&right_value.execute()),
             ASTOp::Reduce { value, dim, op } => value.execute().reduce_v(*dim, *op),
-            ASTOp::Expand { value, dim } => value.execute().expand_v(*dim),
+            ASTOp::Unsqueeze { value, dim } => value.execute().unsqueeze_v(*dim),
+            ASTOp::Squeeze { value, dim } => value.execute().squeeze_v(*dim),
         }
     }
 }
@@ -276,7 +297,8 @@ pub trait ExecuteAST {
     fn reduce_v(&self, axis: ReduceAxis, op: ReduceOp) -> Self;
 
     // // Movement ops
-    fn expand_v(&mut self, dim: usize) -> Self;
+    fn unsqueeze_v(&self, dim: usize) -> Self;
+    fn squeeze_v(&self, dim: usize) -> Self;
     // fn reshape_v(&self, new_shape: Shape) -> Self;
     // fn permute_v(&self, axis_ordering: &[usize]) -> Self;
     // // fn pad_v(&self, ...) -> Self;

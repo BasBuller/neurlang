@@ -147,6 +147,13 @@ fn reduce_benchmark(c: &mut Criterion) {
     c.bench_function("Max array dim", |b| b.iter(|| array0.reduce_max(1)));
 }
 
+fn squeeze_unsqueeze_benchmark(c: &mut Criterion) {
+    let (array, _) = setup(vec![1024, 2048, 1]);
+    
+    c.bench_function("Unsqueeze array", |b| b.iter(|| array.unsqueeze(3)));
+    c.bench_function("Squeeze array", |b| b.iter(|| array.squeeze(2)));
+}
+
 criterion_group!(
     benches,
     negate_benchmark,
@@ -156,5 +163,6 @@ criterion_group!(
     multiply_benchmark,
     slice_benchmark,
     reduce_benchmark,
+    squeeze_unsqueeze_benchmark,
 );
 criterion_main!(benches);

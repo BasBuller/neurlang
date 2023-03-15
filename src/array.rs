@@ -36,6 +36,13 @@ where
             layout: MemoryLayout::RowMajor,
         }
     }
+    pub fn reference_values(values: Rc<RefCell<Vec<T>>>, shape: Shape) -> Self {
+        Array {
+            values: values,
+            shape: RefCell::new(shape),
+            layout: MemoryLayout::RowMajor,
+        }
+    }
     fn duplicate(&self, values: Vec<T>) -> Self {
         Array {
             values: Rc::new(RefCell::new(values)),
@@ -180,12 +187,19 @@ where
         self.clone()
     }
     
-    /// TODO Fix this horrible implementation to prevent copying
-    pub fn expand(&self, dim: usize) -> Self {
+    pub fn unsqueeze(&self, dim: usize) -> Self {
         let mut new_shape = self.shape.borrow().clone();
         new_shape.dimensions.insert(dim, 1);
-        Self::new(
-            self.values.borrow().clone(),
+        Self::reference_values(
+            self.values.clone(),
+            new_shape,
+        )
+    }
+    pub fn squeeze(&self, dim: usize) -> Self {
+        let mut new_shape = self.shape.borrow().clone();
+        new_shape.dimensions.remove(dim);
+        Self::reference_values(
+            self.values.clone(),
             new_shape,
         )
     }
@@ -219,8 +233,11 @@ where
             ReduceOp::Max => self.reduce_max(axis),
         }
     }
-    fn expand_v(&mut self, dim: usize) -> Self {
-        self.expand(dim)
+    fn unsqueeze_v(&self, dim: usize) -> Self {
+        self.unsqueeze(dim)
+    }
+    fn squeeze_v(&self, dim: usize) -> Self {
+        self.squeeze(dim)
     }
 }
 
@@ -310,15 +327,28 @@ mod tests {
     }
     
     #[test]
-    fn expand() {
+    fn unsqueeze() {
         let arr = Array::<f32>::new(vec![2.0; 6], Shape::new(vec![6]));
-        let arr = arr.expand(0);
+        let arr = arr.unsqueeze(0);
         let target = vec![1, 6];
         compare_vecs(&target, &arr.shape.borrow().dimensions);
 
         let arr = Array::<f32>::new(vec![2.0; 6], Shape::new(vec![6]));
-        let arr = arr.expand(1);
+        let arr = arr.unsqueeze(1);
         let target = vec![6, 1];
+        compare_vecs(&target, &arr.shape.borrow().dimensions);
+    }
+
+    #[test]
+    fn squeeze() {
+        let arr = Array::<f32>::new(vec![2.0; 6], Shape::new(vec![1, 6]));
+        let arr = arr.squeeze(0);
+        let target = vec![6];
+        compare_vecs(&target, &arr.shape.borrow().dimensions);
+
+        let arr = Array::<f32>::new(vec![2.0; 6], Shape::new(vec![6, 1]));
+        let arr = arr.squeeze(1);
+        let target = vec![6];
         compare_vecs(&target, &arr.shape.borrow().dimensions);
     }
 
