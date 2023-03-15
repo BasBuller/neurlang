@@ -17,6 +17,8 @@ When performing matrix multiplication you ideally want to iterate over the **row
     
 ## To Do's
 - [x] Update Shape implementation used in Array
+- [x] Implement very first version of expand
+    - [ ] Improve expand performance by preventing a copy, need to wrap Shape in a RefCell
 - [ ] Implement permutation/reshape
 - [ ] Implement matmul in pure Rust
 - [ ] Maybe I need to implement the tensorproduct like in Numpy? That enables essentially all types of tensor operations

@@ -52,12 +52,6 @@ pub enum ReduceOp {
 }
 
 #[derive(Debug)]
-pub struct ASTNode<T: ExecuteAST> {
-    op: ASTOp<T>,
-    shape: Shape,
-}
-
-#[derive(Debug)]
 pub enum ASTOp<T: ExecuteAST> {
     // Leaf
     Value {
@@ -111,6 +105,22 @@ pub enum ASTOp<T: ExecuteAST> {
         dim: ReduceAxis,
         op: ReduceOp,
     },
+    
+    // Movement ops
+    Expand {
+        value: Rc<ASTNode<T>>,
+        dim: usize,
+    },
+    // Reshape {
+    //     value: Rc<ASTNode<T>>,
+    //     new_shape: Shape,
+    // },
+}
+
+#[derive(Debug)]
+pub struct ASTNode<T: ExecuteAST> {
+    op: ASTOp<T>,
+    shape: Shape,
 }
 
 impl<T: ExecuteAST> ASTNode<T> {
@@ -186,6 +196,22 @@ impl<T: ExecuteAST> ASTNode<T> {
             shape: new_shape,
         })
     }
+    
+    pub fn expand(self: Rc<Self>, dim: usize) -> Rc<ASTNode<T>> {
+        assert!(
+            dim <= self.shape.dimensions.len(),
+            "Expanded dimension larger than existing shape",
+        );
+        
+        let mut new_shape = self.shape.clone();
+        new_shape.dimensions.insert(dim, 1);
+        Rc::new(ASTNode {
+            op: ASTOp::Expand{
+                value: self,
+                dim: dim,
+            },
+            shape: new_shape })
+    }
 
     // Utils
     pub fn new(value: T, shape: Shape) -> Rc<ASTNode<T>> {
@@ -205,6 +231,7 @@ impl<T: ExecuteAST> ASTNode<T> {
                 right_value,
             } => left_value.execute().add_v(&right_value.execute()),
             ASTOp::Reduce { value, dim, op } => value.execute().reduce_v(*dim, *op),
+            ASTOp::Expand { value, dim } => value.execute().expand_v(*dim),
         }
     }
 }
@@ -231,8 +258,8 @@ pub trait ExecuteAST {
     fn reduce_v(&self, axis: ReduceAxis, op: ReduceOp) -> Self;
 
     // // Movement ops
-    // fn expand_v(&self, axis: usize) -> Self;
-    // fn reshape_v(&self, new_shape: &Shape) -> Self;
+    fn expand_v(&mut self, dim: usize) -> Self;
+    // fn reshape_v(&self, new_shape: Shape) -> Self;
     // fn permute_v(&self, axis_ordering: &[usize]) -> Self;
     // // fn pad_v(&self, ...) -> Self;
     // // fn shrink_v(&self, ...) -> Self;

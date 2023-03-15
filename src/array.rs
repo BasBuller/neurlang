@@ -1,7 +1,6 @@
 use crate::indexing::*;
-use crate::neurlang::{ArrayIndex, ExecuteAST, MemoryLayout, ReduceAxis, ReduceOp, Shape};
+use crate::neurlang::{ExecuteAST, MemoryLayout, ReduceAxis, ReduceOp, Shape};
 use crate::utils::count_elements;
-use std::ops::Index;
 
 use num::Float;
 use rand::prelude::*;
@@ -95,6 +94,9 @@ where
     pub fn add(&self, right_array: &Self) -> Self {
         self.binary_op(right_array, |(&lval, &rval)| lval + rval)
     }
+    pub fn multiply(&self, right_array: &Self) -> Self {
+        self.binary_op(right_array, |(&lval, &rval)| lval * rval)
+    }
     pub fn max(&self, right_array: &Self) -> Self {
         self.binary_op(
             right_array,
@@ -176,6 +178,16 @@ where
     pub fn matmul(&self, right_array: &Array<T>) -> Self {
         self.clone()
     }
+    
+    /// TODO Fix this horrible implementation to prevent copying
+    pub fn expand(&self, dim: usize) -> Self {
+        let mut new_shape = self.shape.clone();
+        new_shape.dimensions.insert(dim, 1);
+        Self::new(
+            self.values.borrow().clone(),
+            new_shape,
+        )
+    }
 }
 
 impl<T> ExecuteAST for Array<T>
@@ -205,6 +217,9 @@ where
             ReduceOp::Sum => self.reduce_sum(axis),
             ReduceOp::Max => self.reduce_max(axis),
         }
+    }
+    fn expand_v(&mut self, dim: usize) -> Self {
+        self.expand(dim)
     }
 }
 
@@ -291,6 +306,19 @@ mod tests {
         let arr2 = arr.reduce_max(2);
         let target2: Vec<f32> = vec![2.0, 4.0, 6.0, 8.0];
         compare_vecs(&target2, &arr2.values.borrow());
+    }
+    
+    #[test]
+    fn expand() {
+        let arr = Array::<f32>::new(vec![2.0; 6], Shape::new(vec![6]));
+        let arr = arr.expand(0);
+        let target = vec![1, 6];
+        compare_vecs(&target, &arr.shape.dimensions);
+
+        let arr = Array::<f32>::new(vec![2.0; 6], Shape::new(vec![6]));
+        let arr = arr.expand(1);
+        let target = vec![6, 1];
+        compare_vecs(&target, &arr.shape.dimensions);
     }
 
     #[test]

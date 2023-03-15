@@ -35,11 +35,15 @@ pub fn inpl_ln<T: Float>(values: &mut [T]) {
     values.iter_mut().map(|value| *value = value.ln()).count();
 }
 
-pub fn add<T: Float>(lvalues: &[T], rvalues: &[T]) -> Vec<T> {
+pub fn binary_op<T, F>(lvalues: &[T], rvalues: &[T], binary_f: F) -> Vec<T>
+where
+    T: Float,
+    F: Fn((&T, &T)) -> T,
+{
     lvalues
         .iter()
         .zip(rvalues.iter())
-        .map(|(&lval, &rval)| lval + rval)
+        .map(binary_f)
         .collect::<Vec<_>>()
 }
 
@@ -109,12 +113,25 @@ fn ln_benchmark(c: &mut Criterion) {
 }
 
 fn add_benchmark(c: &mut Criterion) {
-    let (array0, vec0) = setup(vec![512, 1024]);
-    let (array1, vec1) = setup(vec![512, 1024]);
+    // let (array0, vec0) = setup(vec![512, 1024]);
+    // let (array1, vec1) = setup(vec![512, 1024]);
+    let (array0, vec0) = setup(vec![5000, 5000]);
+    let (array1, vec1) = setup(vec![5000, 5000]);
 
     let mut group = c.benchmark_group("Add");
     group.bench_function("Array", |b| b.iter(|| array0.add(&array1)));
-    group.bench_function("Vector", |b| b.iter(|| add(&vec0, &vec1)));
+    group.bench_function("Vector", |b| b.iter(|| binary_op(&vec0, &vec1, |(&lval, &rval)| lval + rval)));
+}
+
+fn multiply_benchmark(c: &mut Criterion) {
+    // let (array0, vec0) = setup(vec![512, 1024]);
+    // let (array1, vec1) = setup(vec![512, 1024]);
+    let (array0, vec0) = setup(vec![5000, 5000]);
+    let (array1, vec1) = setup(vec![5000, 5000]);
+
+    let mut group = c.benchmark_group("Multiply");
+    group.bench_function("Array", |b| b.iter(|| array0.multiply(&array1)));
+    group.bench_function("Vector", |b| b.iter(|| binary_op(&vec0, &vec1, |(&lval, &rval)| lval * rval)));
 }
 
 fn slice_benchmark(c: &mut Criterion) {
@@ -136,6 +153,7 @@ criterion_group!(
     exp_benchmark,
     ln_benchmark,
     add_benchmark,
+    multiply_benchmark,
     slice_benchmark,
     reduce_benchmark,
 );
