@@ -120,7 +120,9 @@ fn add_benchmark(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("Add");
     group.bench_function("Array", |b| b.iter(|| array0.add(&array1)));
-    group.bench_function("Vector", |b| b.iter(|| binary_op(&vec0, &vec1, |(&lval, &rval)| lval + rval)));
+    group.bench_function("Vector", |b| {
+        b.iter(|| binary_op(&vec0, &vec1, |(&lval, &rval)| lval + rval))
+    });
 }
 
 fn multiply_benchmark(c: &mut Criterion) {
@@ -131,7 +133,12 @@ fn multiply_benchmark(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("Multiply");
     group.bench_function("Array", |b| b.iter(|| array0.multiply(&array1)));
-    group.bench_function("Vector", |b| b.iter(|| binary_op(&vec0, &vec1, |(&lval, &rval)| lval * rval)));
+    group.bench_function("Vector", |b| {
+        b.iter(|| binary_op(&vec0, &vec1, |(&lval, &rval)| lval * rval))
+    });
+    group.bench_function("Vector long f", |b| {
+        b.iter(|| binary_op(&vec0, &vec1, |(&lval, &rval)| lval * rval + lval * rval))
+    });
 }
 
 fn slice_benchmark(c: &mut Criterion) {
@@ -149,7 +156,7 @@ fn reduce_benchmark(c: &mut Criterion) {
 
 fn squeeze_unsqueeze_benchmark(c: &mut Criterion) {
     let (array, _) = setup(vec![1024, 2048, 1]);
-    
+
     c.bench_function("Unsqueeze array", |b| b.iter(|| array.unsqueeze(3)));
     c.bench_function("Squeeze array", |b| b.iter(|| array.squeeze(2)));
 }

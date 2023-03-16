@@ -105,7 +105,7 @@ pub enum ASTOp<T: ExecuteAST> {
         dim: ReduceAxis,
         op: ReduceOp,
     },
-    
+
     // Movement ops
     Unsqueeze {
         value: Rc<ASTNode<T>>,
@@ -115,10 +115,10 @@ pub enum ASTOp<T: ExecuteAST> {
         value: Rc<ASTNode<T>>,
         dim: usize,
     },
-    // Reshape {
-    //     value: Rc<ASTNode<T>>,
-    //     new_shape: Shape,
-    // },
+    Reshape {
+        value: Rc<ASTNode<T>>,
+        new_shape: Shape,
+    },
     // Permute {
     //     value: Rc<ASTNode<T>>,
     //     dim_order: Vec<usize>,
@@ -214,21 +214,22 @@ impl<T: ExecuteAST> ASTNode<T> {
             shape: new_shape,
         })
     }
-    
+
     pub fn unsqueeze(self: Rc<Self>, dim: usize) -> Rc<ASTNode<T>> {
         assert!(
             dim <= self.shape.dimensions.len(),
             "Expanded dimension larger than existing shape",
         );
-        
+
         let mut new_shape = self.shape.clone();
         new_shape.dimensions.insert(dim, 1);
         Rc::new(ASTNode {
-            op: ASTOp::Unsqueeze{
+            op: ASTOp::Unsqueeze {
                 value: self,
                 dim: dim,
             },
-            shape: new_shape })
+            shape: new_shape,
+        })
     }
     pub fn squeeze(self: Rc<Self>, dim: usize) -> Rc<ASTNode<T>> {
         assert!(
@@ -239,17 +240,35 @@ impl<T: ExecuteAST> ASTNode<T> {
             self.shape.dimensions[dim] == 1,
             "Dimension to be squeezed is not 1",
         );
-        
+
         let mut new_shape = self.shape.clone();
         new_shape.dimensions.remove(dim);
         Rc::new(ASTNode {
-            op: ASTOp::Squeeze{
+            op: ASTOp::Squeeze {
                 value: self,
                 dim: dim,
             },
-            shape: new_shape })
+            shape: new_shape,
+        })
     }
 
+    pub fn reshape(self: Rc<Self>, new_shape: Vec<usize>) -> Rc<ASTNode<T>> {
+        assert!(
+            count_elements(&new_shape) == self.shape.nelem(),
+            "Reshaped dimensions number elements ({}) does not match number elements of array ({})",
+            count_elements(&new_shape),
+            self.shape.nelem(),
+        );
+
+        let new_shape = Shape::new(new_shape);
+        Rc::new(ASTNode {
+            op: ASTOp::Reshape {
+                value: self,
+                new_shape: new_shape.clone(),
+            },
+            shape: new_shape,
+        })
+    }
 
     // Utils
     pub fn new(value: T, shape: Shape) -> Rc<ASTNode<T>> {
@@ -271,6 +290,7 @@ impl<T: ExecuteAST> ASTNode<T> {
             ASTOp::Reduce { value, dim, op } => value.execute().reduce_v(*dim, *op),
             ASTOp::Unsqueeze { value, dim } => value.execute().unsqueeze_v(*dim),
             ASTOp::Squeeze { value, dim } => value.execute().squeeze_v(*dim),
+            ASTOp::Reshape { value, new_shape } => value.execute().reshape_v(new_shape.clone()),
         }
     }
 }
@@ -299,7 +319,7 @@ pub trait ExecuteAST {
     // // Movement ops
     fn unsqueeze_v(&self, dim: usize) -> Self;
     fn squeeze_v(&self, dim: usize) -> Self;
-    // fn reshape_v(&self, new_shape: Shape) -> Self;
+    fn reshape_v(&self, new_shape: Shape) -> Self;
     // fn permute_v(&self, axis_ordering: &[usize]) -> Self;
     // // fn pad_v(&self, ...) -> Self;
     // // fn shrink_v(&self, ...) -> Self;

@@ -122,7 +122,7 @@ where
         Shape::new(new_dimensions)
     }
 
-    fn slice_vector(&self, axis: usize, index: usize) -> Vec<T> {
+    pub fn slice_vector(&self, axis: usize, index: usize) -> Vec<T> {
         let array = self.values.borrow();
         let slice_iter = make_slice(&self.shape.borrow(), axis, index).into_iter();
         let mut res_values = Vec::with_capacity(slice_iter.n_prefix * slice_iter.n_suffix);
@@ -186,60 +186,66 @@ where
     pub fn matmul(&self, right_array: &Array<T>) -> Self {
         self.clone()
     }
-    
+
     pub fn unsqueeze(&self, dim: usize) -> Self {
         let mut new_shape = self.shape.borrow().clone();
         new_shape.dimensions.insert(dim, 1);
-        Self::reference_values(
-            self.values.clone(),
-            new_shape,
-        )
+        Self::reference_values(self.values.clone(), new_shape)
     }
     pub fn squeeze(&self, dim: usize) -> Self {
         let mut new_shape = self.shape.borrow().clone();
         new_shape.dimensions.remove(dim);
-        Self::reference_values(
-            self.values.clone(),
-            new_shape,
-        )
+        Self::reference_values(self.values.clone(), new_shape)
     }
+
+    pub fn reshape(&self, new_shape: Shape) -> Self {
+        Self::reference_values(self.values.clone(), new_shape)
+    }
+
+    // fn move_dim_forward(&self, first_dim: usize) -> Self {
+    //     let nelem = self.shape.borrow().dimensions[first_dim];
+    //     let new_values = (0..nelem).flat_map(|index| make_slice(&self.shape.borrow(), first_dim, index));
+    // }
 }
 
-impl<T> ExecuteAST for Array<T>
-where
-    T: Float + std::fmt::Debug,
-{
-    fn value_v(&self) -> Self {
-        self.clone()
-    }
-    fn negate_v(&self) -> Self {
-        self.negate()
-    }
-    fn exp_v(&self) -> Self {
-        self.exp()
-    }
-    fn log_v(&self) -> Self {
-        self.ln()
-    }
-    fn add_v(&self, right_value: &Self) -> Self {
-        self.add(right_value)
-    }
-    fn max_v(&self, right_value: &Self) -> Self {
-        self.max(right_value)
-    }
-    fn reduce_v(&self, axis: ReduceAxis, op: ReduceOp) -> Self {
-        match op {
-            ReduceOp::Sum => self.reduce_sum(axis),
-            ReduceOp::Max => self.reduce_max(axis),
-        }
-    }
-    fn unsqueeze_v(&self, dim: usize) -> Self {
-        self.unsqueeze(dim)
-    }
-    fn squeeze_v(&self, dim: usize) -> Self {
-        self.squeeze(dim)
-    }
-}
+// impl<T> ExecuteAST for Array<T>
+// where
+//     T: Float + std::fmt::Debug,
+// {
+//     fn value_v(&self) -> Self {
+//         self.clone()
+//     }
+//     fn negate_v(&self) -> Self {
+//         self.negate()
+//     }
+//     fn exp_v(&self) -> Self {
+//         self.exp()
+//     }
+//     fn log_v(&self) -> Self {
+//         self.ln()
+//     }
+//     fn add_v(&self, right_value: &Self) -> Self {
+//         self.add(right_value)
+//     }
+//     fn max_v(&self, right_value: &Self) -> Self {
+//         self.max(right_value)
+//     }
+//     fn reduce_v(&self, axis: ReduceAxis, op: ReduceOp) -> Self {
+//         match op {
+//             ReduceOp::Sum => self.reduce_sum(axis),
+//             ReduceOp::Max => self.reduce_max(axis),
+//         }
+//     }
+//     fn unsqueeze_v(&self, dim: usize) -> Self {
+//         self.unsqueeze(dim)
+//     }
+//     fn squeeze_v(&self, dim: usize) -> Self {
+//         self.squeeze(dim)
+//     }
+//     fn reshape_v(&self, new_shape: Shape) -> Self {
+//         self.reshape(new_shape)
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
@@ -325,7 +331,7 @@ mod tests {
         let target2: Vec<f32> = vec![2.0, 4.0, 6.0, 8.0];
         compare_vecs(&target2, &arr2.values.borrow());
     }
-    
+
     #[test]
     fn unsqueeze() {
         let arr = Array::<f32>::new(vec![2.0; 6], Shape::new(vec![6]));
@@ -349,6 +355,14 @@ mod tests {
         let arr = Array::<f32>::new(vec![2.0; 6], Shape::new(vec![6, 1]));
         let arr = arr.squeeze(1);
         let target = vec![6];
+        compare_vecs(&target, &arr.shape.borrow().dimensions);
+    }
+
+    #[test]
+    fn reshape() {
+        let arr = Array::<f32>::new(vec![2.0; 24], Shape::new(vec![2, 3, 4]));
+        let arr = arr.reshape(Shape::new(vec![2, 3, 2, 2]));
+        let target = vec![2, 3, 2, 2];
         compare_vecs(&target, &arr.shape.borrow().dimensions);
     }
 
