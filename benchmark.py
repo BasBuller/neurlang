@@ -5,60 +5,59 @@ import jax
 import torch
 
 
+SHAPE = (5000, 5000)
+
+
 def numpy_function():
-    values = np.random.randn(5000, 5000)
+    values = np.random.randn(*SHAPE)
     def time_func():
         res = values * values + values * 2
+        return res
     return time_func
 
 
 def numpy_permute(contiguous):
-    values = np.random.randn(5000, 5000)
+    values = np.random.randn(*SHAPE)
     def time_func():
         res = np.transpose(values, (1, 0))
         if contiguous:
             res = np.ascontiguousarray(res)
+        return res
     return time_func
 
 
-def torch_function_slow():
-    values = torch.randn(5000, 5000)
+def torch_function(compile):
+    values = torch.randn(*SHAPE)
     def time_func():
         res = values * values + values * 2
+        return res
+    if compile:
+        time_func = torch.compile(time_func)
+        time_func()
     return time_func
 
 
-def torch_function_fast():
-    values = torch.randn(5000, 5000)
-    @torch.compile
-    def time_func():
-        res = values * values + values * 2
-    return time_func
-
-
-def torch_permute(contiguous):
-    values = torch.randn(5000, 5000)
-    @torch.compile
+def torch_permute(contiguous, compile):
+    values = torch.randn(*SHAPE)
     def time_func():
         res = torch.permute(values, (1, 0))
         if contiguous:
             res = res.contiguous()
+        return res
+    if compile:
+        time_func = torch.compile(time_func)
+        time_func()
     return time_func
 
 
-def jax_function_slow():
-    values = jax.random.normal(jax.random.PRNGKey(0), (5000, 5000))
+def jax_function(compile):
+    values = jax.random.normal(jax.random.PRNGKey(0), SHAPE)
     def time_func():
         res = values * values + values * 2
-    return time_func
-
-
-def jax_function_fast():
-    values = jax.random.normal(jax.random.PRNGKey(0), (5000, 5000))
-    @jax.jit
-    def time_func():
-        res = values * values + values * 2
-    _ = time_func()
+        return res
+    if compile:
+        time_func = jax.jit(time_func)
+        time_func()
     return time_func
 
 
@@ -68,16 +67,15 @@ def time_results(prefix, func):
 
 if __name__ == "__main__":
     N_ITER = 50
-
-    jax_function_fast()()
-    torch_function_fast()()
     
     time_results("Numpy", numpy_function())
     time_results("Numpy permute non-contiguous", numpy_permute(False))
     time_results("Numpy permute contiguous", numpy_permute(True))
-    time_results("Torch slow", torch_function_slow())
-    time_results("Torch fast", torch_function_fast())
-    time_results("Torch permute non-contiguous", torch_permute(False))
-    time_results("Torch permute contiguous", torch_permute(True))
-    time_results("Jax slow", jax_function_slow())
-    time_results("Jax fast", jax_function_fast())
+    time_results("Torch slow", torch_function(False))
+    time_results("Torch fast", torch_function(True))
+    time_results("Torch permute non-contiguous - slow", torch_permute(False, False))
+    time_results("Torch permute contiguous - slow", torch_permute(True, False))
+    time_results("Torch permute non-contiguous - fast", torch_permute(False, True))
+    time_results("Torch permute contiguous - fast", torch_permute(True, True))
+    time_results("Jax slow", jax_function(False))
+    time_results("Jax fast", jax_function(True))
