@@ -202,10 +202,17 @@ where
         Self::reference_values(self.values.clone(), new_shape)
     }
 
-    // fn move_dim_forward(&self, first_dim: usize) -> Self {
-    //     let nelem = self.shape.borrow().dimensions[first_dim];
-    //     let new_values = (0..nelem).flat_map(|index| make_slice(&self.shape.borrow(), first_dim, index));
-    // }
+    pub fn permute(&self, new_order: Vec<usize>) -> Self {
+        let values = self.values.borrow();
+        let new_shape = Shape::new(
+            new_order
+                .iter()
+                .map(|&idx| self.shape.borrow().dimensions[idx])
+                .collect::<Vec<_>>(),
+        );
+        let new_values = permute_naive(&values, &self.shape.borrow(), new_order);
+        Self::new(new_values, new_shape)
+    }
 }
 
 // impl<T> ExecuteAST for Array<T>
@@ -375,5 +382,38 @@ mod tests {
         compare_vecs(&target_values, &res.values.borrow());
         let target_shape = vec![2, 4];
         compare_vecs(&target_shape, &res.shape.borrow().dimensions);
+    }
+
+    #[test]
+    fn permute() {
+        let values = vec![1.0, 2.0, 3.0, 4.0];
+        let shape = Shape::new(vec![2, 2]);
+        let new_values = permute_naive(&values, &shape, vec![1, 0]);
+        let target = vec![1.0, 3.0, 2.0, 4.0];
+        compare_vecs(&target, &new_values);
+
+        let values = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
+        let shape = Shape::new(vec![2, 2, 2]);
+        let new_values = permute_naive(&values, &shape, vec![1, 0, 2]);
+        let target = vec![1.0, 2.0, 5.0, 6.0, 3.0, 4.0, 7.0, 8.0];
+        compare_vecs(&target, &new_values);
+
+        let values = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
+        let shape = Shape::new(vec![2, 2, 2]);
+        let new_values = permute_naive(&values, &shape, vec![2, 1, 0]);
+        let target = vec![1.0, 5.0, 3.0, 7.0, 2.0, 6.0, 4.0, 8.0];
+        compare_vecs(&target, &new_values);
+
+        let values = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        let shape = Shape::new(vec![1, 2, 3]);
+        let new_values = permute_naive(&values, &shape, vec![2, 1, 0]);
+        let target = vec![1.0, 4.0, 2.0, 5.0, 3.0, 6.0];
+        compare_vecs(&target, &new_values);
+
+        let values = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        let shape = Shape::new(vec![1, 2, 3]);
+        let new_values = permute_naive(&values, &shape, vec![1, 2, 0]);
+        let target = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        compare_vecs(&target, &new_values);
     }
 }

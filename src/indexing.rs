@@ -1,13 +1,10 @@
 use crate::neurlang::{ArrayIndex, MemoryLayout, Shape};
 use crate::utils::count_elements;
+use num::Float;
 
 // //////////////////
 // Slicing
 // //////////////////
-pub fn make_slice(shape: &Shape, axis: usize, index: usize) -> Slice {
-    Slice { shape, axis, index }
-}
-
 #[derive(Debug, Clone, Copy)]
 pub struct Slice<'a> {
     shape: &'a Shape,
@@ -54,6 +51,51 @@ impl Iterator for SliceIterator {
         } else {
             None
         }
+    }
+}
+
+// /////////////////////////
+// Permute
+// /////////////////////////
+pub fn make_slice(shape: &Shape, axis: usize, index: usize) -> Slice {
+    Slice { shape, axis, index }
+}
+
+fn slice_vector<T: Float>(values: &Vec<T>, shape: &Shape, axis: usize, index: usize) -> Vec<T> {
+    let slice_iter = make_slice(shape, axis, index).into_iter();
+    let mut res_values = Vec::with_capacity(slice_iter.n_prefix * slice_iter.n_suffix);
+    for (start_idx, end_idx) in slice_iter {
+        res_values.extend_from_slice(&values[start_idx..end_idx]);
+    }
+    res_values
+}
+
+pub fn permute_naive<T: Float>(
+    values: &Vec<T>,
+    current_shape: &Shape,
+    new_shape: Vec<usize>,
+) -> Vec<T> {
+    if new_shape.len() == 1 {
+        values.clone()
+    } else {
+        let new_slice_shape = new_shape[1..]
+            .iter()
+            .map(|&val| if val < new_shape[0] { val } else { val - 1 })
+            .collect::<Vec<_>>();
+        let mut current_slice_shape = current_shape.dimensions.clone();
+        current_slice_shape.remove(new_shape[0]);
+        let current_slice_shape = Shape::new(current_slice_shape);
+
+        let dim_size = current_shape.dimensions[new_shape[0]];
+        let new_array = (0..dim_size)
+            .flat_map(|dim_value| {
+                let slice = slice_vector(values, current_shape, new_shape[0], dim_value);
+                let slice = permute_naive(&slice, &current_slice_shape, new_slice_shape.clone());
+                slice
+            })
+            .collect::<Vec<_>>();
+
+        new_array
     }
 }
 
