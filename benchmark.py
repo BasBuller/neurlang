@@ -67,7 +67,7 @@ def time_results(prefix, func):
 
 if __name__ == "__main__":
     N_ITER = 50
-    
+
     time_results("Numpy", numpy_function())
     time_results("Numpy permute non-contiguous", numpy_permute(False))
     time_results("Numpy permute contiguous", numpy_permute(True))

@@ -14,7 +14,7 @@ When performing matrix multiplication you ideally want to iterate over the **row
     - The Same way of adding constraints can be done for binary ops like addition, where the arrays need the same memory layouts.
     - By defining these traits at my AST level I can implement them for each different type of accelerator, ie CPU, GPU1, GPU2, my own custom chip, ...
     - These relations/constraints can be very well captured in a domain-specific mathematical language, this is exactly what category theory excels at. Would be very cool to have a form of mathematical reasoning enabling me to highly optimize my ASTs. I probably do need an estimate of the cost of specific attribute combinations in order to turn graph refinement into a proper optimization problem.
-    
+
 ## To Do's
 - [x] Update Shape implementation used in Array
 - [x] Implement very first version of expand
@@ -22,12 +22,18 @@ When performing matrix multiplication you ideally want to iterate over the **row
 - [x] Implement reshape
     - [ ] Improve the assertions of the reshape operation to make sure the dimensions are properly split/collapsed
 - [x] Implement permute, the naive version to understand how it works
-    - [ ] Improve into a performant version by using my slice iterators instead of collecting intermediate results into vectors
+    - [ ] Improve into a performant version by using my slice iterators instead of collecting intermediate results into vectors. Can likely do so in the following way:
+        1. Chain iterators for reading all the slices from the original array.
+            - Might be able to use __enumerate__ to slice into a slice properly!
+            - However, seems more likely that an efficient index operator the allows for slices will work better. This way I can have an iterator type that goes through the backing memory just once, and hence does not need to allocate much intermediate memory.
+        2. Collect the resulting slices into a new vector only once
+- [ ] Greatly improve tensor indexing code quality
+- [ ] Make the array Shape describe how the memory representation is, whereas in my NeurlangAST keep track of what the desired shape is.
+- [ ] Move to const generics shape?
 - [ ] Implement matmul in pure Rust
+- [ ] Enable BLAS matmul
 - [ ] Maybe I need to implement the tensorproduct like in Numpy? That enables essentially all types of tensor operations
     - [ ] If done properly this can also be rather speedy, because I can write logic to reason about how to optimize the iteration
-- [ ] Enable BLAS matmul
-- [ ] Greatly improve tensor indexing code quality
 
 ### When implement column major ordering, if at all?
 - [ ] Enable slicing in column major arrays by taking $array_len - row_major_indexer$
