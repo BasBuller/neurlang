@@ -33,7 +33,6 @@ def torch_function_fast():
     @torch.compile
     def time_func():
         res = values * values + values * 2
-    time_func()
     return time_func
 
 
@@ -44,7 +43,6 @@ def torch_permute(contiguous):
         res = torch.permute(values, (1, 0))
         if contiguous:
             res = res.contiguous()
-    time_func()
     return time_func
 
 
@@ -64,18 +62,22 @@ def jax_function_fast():
     return time_func
 
 
+def time_results(prefix, func):
+    print(f"{prefix}: {timeit.timeit(func, number=N_ITER) / N_ITER * 100000:.1f} micro seconds")
+
+
 if __name__ == "__main__":
-    N_ITER = 10
+    N_ITER = 50
 
     jax_function_fast()()
     torch_function_fast()()
-
-    print("Numpy: ", timeit.timeit(numpy_function(), number=N_ITER) / N_ITER)
-    print("Numpy permute non-contiguous: ", timeit.timeit(numpy_permute(contiguous=False), number=N_ITER) / N_ITER)
-    print("Numpy permute contiguous: ", timeit.timeit(numpy_permute(contiguous=True), number=N_ITER) / N_ITER)
-    print("Torch slow: ", timeit.timeit(torch_function_slow(), number=N_ITER) / N_ITER)
-    print("Torch fast: ", timeit.timeit(torch_function_fast(), number=N_ITER) / N_ITER)
-    print("Torch permute non-contiguous: ", timeit.timeit(torch_permute(contiguous=False), number=N_ITER) / N_ITER)
-    print("Torch permute contiguous: ", timeit.timeit(torch_permute(contiguous=True), number=N_ITER) / N_ITER)
-    print("Jax slow: ", timeit.timeit(jax_function_slow(), number=N_ITER) / N_ITER)
-    print("Jax fast: ", timeit.timeit(jax_function_fast(), number=N_ITER) / N_ITER)
+    
+    time_results("Numpy", numpy_function())
+    time_results("Numpy permute non-contiguous", numpy_permute(False))
+    time_results("Numpy permute contiguous", numpy_permute(True))
+    time_results("Torch slow", torch_function_slow())
+    time_results("Torch fast", torch_function_fast())
+    time_results("Torch permute non-contiguous", torch_permute(False))
+    time_results("Torch permute contiguous", torch_permute(True))
+    time_results("Jax slow", jax_function_slow())
+    time_results("Jax fast", jax_function_fast())

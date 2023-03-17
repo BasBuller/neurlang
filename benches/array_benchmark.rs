@@ -122,9 +122,6 @@ fn multiply_benchmark(c: &mut Criterion) {
     group.bench_function("Vector", |b| {
         b.iter(|| binary_op(&vec0, &vec1, |(&lval, &rval)| lval * rval))
     });
-    group.bench_function("Vector long f", |b| {
-        b.iter(|| binary_op(&vec0, &vec1, |(&lval, &rval)| lval * rval + lval * rval))
-    });
 }
 
 fn slice_benchmark(c: &mut Criterion) {
@@ -153,6 +150,15 @@ fn permute_benchmark(c: &mut Criterion) {
     c.bench_function("Permute array", |b| b.iter(|| array.permute(vec![1, 0])));
 }
 
+fn python_compare(c: &mut Criterion) {
+    let (_, vec0) = setup(vec![5000, 5000]);
+    let (_, vec1) = setup(vec![5000, 5000]);
+
+    c.bench_function("Python compare", |b| {
+        b.iter(|| binary_op(&vec0, &vec1, |(&lval, &rval)| lval * rval + lval * rval))
+    });
+}
+
 criterion_group!(
     benches,
     negate_benchmark,
@@ -164,5 +170,6 @@ criterion_group!(
     reduce_benchmark,
     squeeze_unsqueeze_benchmark,
     permute_benchmark,
+    python_compare,
 );
 criterion_main!(benches);
