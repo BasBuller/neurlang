@@ -122,7 +122,7 @@ where
         Shape::new(new_dimensions)
     }
 
-    pub fn slice_vector(&self, axis: usize, index: usize) -> Vec<T> {
+    fn slice_vector(&self, axis: usize, index: usize) -> Vec<T> {
         let array = self.values.borrow();
         let slice_iter = make_slice(&self.shape.borrow(), axis, index).into_iter();
         let mut res_values = Vec::with_capacity(slice_iter.n_prefix * slice_iter.n_suffix);
@@ -183,10 +183,7 @@ where
         })
     }
 
-    pub fn matmul(&self, right_array: &Array<T>) -> Self {
-        self.clone()
-    }
-
+    // Movement ops
     pub fn unsqueeze(&self, dim: usize) -> Self {
         let mut new_shape = self.shape.borrow().clone();
         new_shape.dimensions.insert(dim, 1);
@@ -212,6 +209,11 @@ where
         );
         let new_values = permute_naive(&values, &self.shape.borrow(), new_order);
         Self::new(new_values, new_shape)
+    }
+
+    // Higher order ops
+    pub fn matmul(&self, right_array: &Array<T>) -> Self {
+        self.clone()
     }
 }
 

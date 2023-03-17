@@ -57,27 +57,17 @@ fn setup(dimensions: Vec<usize>) -> (Array<f32>, Vec<f32>) {
 }
 
 fn negate_benchmark(c: &mut Criterion) {
-    let shape = vec![512, 1024];
+    let shape = vec![5000, 5000];
     let nelem = shape.iter().fold(1, |res, &val| res * val);
     let (array, mut vec) = setup(shape);
 
-    const N_ELEM: usize = 512 * 1024;
-    let raw_arr = Box::new([1.0; N_ELEM]);
-    let mut target_raw_arr = Box::new([1.0; N_ELEM]);
-
     let mut group = c.benchmark_group("Negate new object");
-    group.bench_function("Raw Array", |b| {
-        b.iter(|| negate_arr_raw(&raw_arr, &mut target_raw_arr))
-    });
     group.bench_function("Array", |b| b.iter(|| array.negate()));
     group.bench_function("Vector", |b| b.iter(|| negate(&vec)));
     group.bench_function("Slice", |b| b.iter(|| negate(&vec[0..nelem])));
     group.finish();
 
     let mut group = c.benchmark_group("Negate in place");
-    group.bench_function("Raw Array", |b| {
-        b.iter(|| inpl_negate_arr_raw(&mut target_raw_arr))
-    });
     group.bench_function("Array", |b| b.iter(|| array.inpl_negate()));
     group.bench_function("Vector", |b| b.iter(|| inpl_negate(&mut vec)));
     group.bench_function("Slice", |b| b.iter(|| inpl_negate(&mut vec[0..nelem])));
@@ -85,7 +75,7 @@ fn negate_benchmark(c: &mut Criterion) {
 }
 
 fn exp_benchmark(c: &mut Criterion) {
-    let (array, mut vec) = setup(vec![512, 1024]);
+    let (array, mut vec) = setup(vec![5000, 5000]);
 
     let mut group = c.benchmark_group("Exponate new object");
     group.bench_function("Array", |b| b.iter(|| array.exp()));
@@ -99,7 +89,7 @@ fn exp_benchmark(c: &mut Criterion) {
 }
 
 fn ln_benchmark(c: &mut Criterion) {
-    let (array, mut vec) = setup(vec![512, 1024]);
+    let (array, mut vec) = setup(vec![5000, 5000]);
 
     let mut group = c.benchmark_group("Natural logarithm new object");
     group.bench_function("Array", |b| b.iter(|| array.ln()));
@@ -113,8 +103,6 @@ fn ln_benchmark(c: &mut Criterion) {
 }
 
 fn add_benchmark(c: &mut Criterion) {
-    // let (array0, vec0) = setup(vec![512, 1024]);
-    // let (array1, vec1) = setup(vec![512, 1024]);
     let (array0, vec0) = setup(vec![5000, 5000]);
     let (array1, vec1) = setup(vec![5000, 5000]);
 
@@ -126,8 +114,6 @@ fn add_benchmark(c: &mut Criterion) {
 }
 
 fn multiply_benchmark(c: &mut Criterion) {
-    // let (array0, vec0) = setup(vec![512, 1024]);
-    // let (array1, vec1) = setup(vec![512, 1024]);
     let (array0, vec0) = setup(vec![5000, 5000]);
     let (array1, vec1) = setup(vec![5000, 5000]);
 
@@ -161,6 +147,12 @@ fn squeeze_unsqueeze_benchmark(c: &mut Criterion) {
     c.bench_function("Squeeze array", |b| b.iter(|| array.squeeze(2)));
 }
 
+fn permute_benchmark(c: &mut Criterion) {
+    let (array, _) = setup(vec![5000, 5000]);
+    
+    c.bench_function("Permute array", |b| b.iter(|| array.permute(vec![1, 0])));
+}
+
 criterion_group!(
     benches,
     negate_benchmark,
@@ -171,5 +163,6 @@ criterion_group!(
     slice_benchmark,
     reduce_benchmark,
     squeeze_unsqueeze_benchmark,
+    permute_benchmark,
 );
 criterion_main!(benches);
