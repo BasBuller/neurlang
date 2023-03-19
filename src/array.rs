@@ -1,5 +1,5 @@
 use crate::indexing::*;
-use crate::neurlang::{ExecuteAST, MemoryLayout, ReduceAxis, ReduceOp, Shape};
+use crate::neurlang::{ExecuteAST, MemoryLayout, ReduceAxis, ReduceOp, Shape, NewAxis};
 use crate::utils::count_elements;
 
 use num::Float;
@@ -113,15 +113,6 @@ where
     }
 
     // Axis reducing operations
-    fn reduce_shape(&self, axis: usize) -> Shape {
-        let new_dimensions = self.shape.borrow().dimensions[0..axis]
-            .iter()
-            .chain(self.shape.borrow().dimensions[(axis + 1)..].iter())
-            .map(|&val| val)
-            .collect::<Vec<_>>();
-        Shape::new(new_dimensions)
-    }
-
     fn slice_vector(&self, axis: usize, index: usize) -> Vec<T> {
         let array = self.values.borrow();
         let slice_iter = make_slice(&self.shape.borrow(), axis, index).into_iter();
@@ -134,7 +125,7 @@ where
     }
 
     pub fn slice(&self, axis: usize, index: usize) -> Self {
-        let res_shape = self.reduce_shape(axis);
+        let res_shape = self.shape.borrow().remove(axis);
         let res_values = self.slice_vector(axis, index);
         Self::new(res_values, res_shape)
     }
@@ -148,7 +139,7 @@ where
         let n_suffix = count_elements(&self.shape.borrow().dimensions[(axis + 1)..]);
         let array = self.values.borrow();
 
-        let res_shape = self.reduce_shape(axis);
+        let res_shape = self.shape.borrow().remove(axis);
         let mut res_values = self.slice_vector(axis, 0);
         for prefix_idx in 0..n_prefix {
             for index in 1..self.shape.borrow().dimensions[axis] {
@@ -184,14 +175,12 @@ where
     }
 
     // Movement ops
-    pub fn unsqueeze(&self, dim: usize) -> Self {
-        let mut new_shape = self.shape.borrow().clone();
-        new_shape.dimensions.insert(dim, 1);
+    pub fn unsqueeze(&self, axis: usize) -> Self {
+        let new_shape = self.shape.borrow().insert(NewAxis::new(axis, 1));
         Self::reference_values(self.values.clone(), new_shape)
     }
-    pub fn squeeze(&self, dim: usize) -> Self {
-        let mut new_shape = self.shape.borrow().clone();
-        new_shape.dimensions.remove(dim);
+    pub fn squeeze(&self, axis: usize) -> Self {
+        let new_shape = self.shape.borrow().remove(axis);
         Self::reference_values(self.values.clone(), new_shape)
     }
 
@@ -201,12 +190,7 @@ where
 
     pub fn permute(&self, new_order: Vec<usize>) -> Self {
         let values = self.values.borrow();
-        let new_shape = Shape::new(
-            new_order
-                .iter()
-                .map(|&idx| self.shape.borrow().dimensions[idx])
-                .collect::<Vec<_>>(),
-        );
+        let new_shape = self.shape.borrow().permute(&new_order);
         let new_values = permute_naive(&values, &self.shape.borrow(), new_order);
         Self::new(new_values, new_shape)
     }
