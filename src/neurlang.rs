@@ -46,7 +46,7 @@ impl<const N: usize> Shape<N>
 
     pub fn remove(&self, index: ReduceAxis) -> Shape<{ N - 1 }>
     where
-        [usize; { N - 1 }]: Sized,
+        [usize; N - 1]: Sized,
     {
         let mut new_dimensions = [0; { N - 1 }];
         new_dimensions[0..index].copy_from_slice(&self.dimensions[0..index]);
@@ -183,7 +183,7 @@ pub struct ASTNode<T: ExecuteAST, const N: usize> {
 
 impl<T: ExecuteAST, const N: usize> ASTNode<T, N>
 where
-    [usize; { N - 1 }]: Sized,
+    [usize; N - 1]: Sized,
 {
     // Unary
     pub fn negate(self: Rc<Self>) -> Rc<ASTNode<T, N>> {
