@@ -35,20 +35,30 @@ impl NewAxis {
 pub struct Shape<const N: usize> {
     pub dimensions: [usize; N],
 }
-impl<const N: usize> Shape<N> {
+impl<const N: usize> Shape<N>
+// where
+//     [usize; {N - 1}]: Sized,
+//     [usize; {N + 1}]: Sized
+{
     pub fn new(dimensions: [usize; N]) -> Self {
         Shape { dimensions }
     }
 
-    pub fn remove<const M: usize>(&self, index: ReduceAxis) -> Shape<M> {
-        let mut new_dimensions = [0; M];
+    pub fn remove(&self, index: ReduceAxis) -> Shape<{ N - 1 }>
+    where
+        [usize; { N - 1 }]: Sized,
+    {
+        let mut new_dimensions = [0; { N - 1 }];
         new_dimensions[0..index].copy_from_slice(&self.dimensions[0..index]);
         new_dimensions[index..].copy_from_slice(&self.dimensions[(index + 1)..]);
         Shape::new(new_dimensions)
     }
 
-    pub fn insert<const M: usize>(&self, new_axis: NewAxis) -> Shape<M> {
-        let mut new_dimensions = [0; M];
+    pub fn insert(&self, new_axis: NewAxis) -> Shape<{ N + 1 }>
+    where
+        [usize; { N + 1 }]: Sized,
+    {
+        let mut new_dimensions = [0; { N + 1 }];
         new_dimensions[0..new_axis.index].copy_from_slice(&self.dimensions[0..new_axis.index]);
         new_dimensions[new_axis.index] = new_axis.axis_size;
         new_dimensions[(new_axis.index + 1)..].copy_from_slice(&self.dimensions[new_axis.index..]);
@@ -64,7 +74,8 @@ impl<const N: usize> Shape<N> {
     }
 
     pub fn len(&self) -> usize {
-        self.dimensions.len()
+        N
+        // self.dimensions.len()
     }
 
     pub fn nelem(&self) -> usize {
@@ -226,61 +237,60 @@ where
         })
     }
 
-    // Reduce
-    pub fn reduce(self: Rc<Self>, dim: ReduceAxis, op: ReduceOp) -> Rc<ASTNode<T, N>> {
-        assert!(
-            self.shape.len() >= dim,
-            "Axis {} not in tensor of dimensions {}",
-            dim,
-            self.shape.len()
-        );
+    // // Reduce
+    // pub fn reduce(self: Rc<Self>, dim: ReduceAxis, op: ReduceOp) -> Rc<ASTNode<T, {N - 1}>> {
+    //     assert!(
+    //         self.shape.len() >= dim,
+    //         "Axis {} not in tensor of dimensions {}",
+    //         dim,
+    //         self.shape.len()
+    //     );
 
-        let new_shape = self.shape.clone();
-        new_shape.remove::<{ N - 1 }>(dim);
-        Rc::new(ASTNode {
-            op: ASTOp::Reduce {
-                value: self,
-                dim: dim,
-                op: op,
-            },
-            shape: new_shape,
-        })
-    }
+    //     let new_shape = self.shape.remove(dim);
+    //     Rc::new(ASTNode {
+    //         op: ASTOp::Reduce {
+    //             value: self,
+    //             dim: dim,
+    //             op: op,
+    //         },
+    //         shape: new_shape,
+    //     })
+    // }
 
-    pub fn unsqueeze(self: Rc<Self>, dim: usize) -> Rc<ASTNode<T, N>> {
-        assert!(
-            dim <= self.shape.dimensions.len(),
-            "Expanded dimension larger than existing shape",
-        );
+    // pub fn unsqueeze(self: Rc<Self>, dim: usize) -> Rc<ASTNode<T, N>> {
+    //     assert!(
+    //         dim <= self.shape.dimensions.len(),
+    //         "Expanded dimension larger than existing shape",
+    //     );
 
-        let new_shape = self.shape.insert(NewAxis::new(dim, 1));
-        Rc::new(ASTNode {
-            op: ASTOp::Unsqueeze {
-                value: self,
-                dim: dim,
-            },
-            shape: new_shape,
-        })
-    }
-    pub fn squeeze(self: Rc<Self>, dim: usize) -> Rc<ASTNode<T, N>> {
-        assert!(
-            dim <= self.shape.dimensions.len(),
-            "Expanded dimension larger than existing shape",
-        );
-        assert!(
-            self.shape.dimensions[dim] == 1,
-            "Dimension to be squeezed is not 1",
-        );
+    //     let new_shape = self.shape.insert(NewAxis::new(dim, 1));
+    //     Rc::new(ASTNode {
+    //         op: ASTOp::Unsqueeze {
+    //             value: self,
+    //             dim: dim,
+    //         },
+    //         shape: new_shape,
+    //     })
+    // }
+    // pub fn squeeze(self: Rc<Self>, dim: usize) -> Rc<ASTNode<T, N>> {
+    //     assert!(
+    //         dim <= self.shape.dimensions.len(),
+    //         "Expanded dimension larger than existing shape",
+    //     );
+    //     assert!(
+    //         self.shape.dimensions[dim] == 1,
+    //         "Dimension to be squeezed is not 1",
+    //     );
 
-        let new_shape = self.shape.remove(dim);
-        Rc::new(ASTNode {
-            op: ASTOp::Squeeze {
-                value: self,
-                dim: dim,
-            },
-            shape: new_shape,
-        })
-    }
+    //     let new_shape = self.shape.remove(dim);
+    //     Rc::new(ASTNode {
+    //         op: ASTOp::Squeeze {
+    //             value: self,
+    //             dim: dim,
+    //         },
+    //         shape: new_shape,
+    //     })
+    // }
 
     pub fn reshape(self: Rc<Self>, new_shape: [usize; N]) -> Rc<ASTNode<T, N>> {
         assert!(

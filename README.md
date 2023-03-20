@@ -27,7 +27,8 @@ When performing matrix multiplication you ideally want to iterate over the **row
             - Might be able to use __enumerate__ to slice into a slice properly!
             - However, seems more likely that an efficient index operator the allows for slices will work better. This way I can have an iterator type that goes through the backing memory just once, and hence does not need to allocate much intermediate memory.
         2. Collect the resulting slices into a new vector only once
-- [ ] Move to const generics shape?
+- [x] Move to const generics shape?
+- [ ] Make a different Shape type for the Graph tracing, and retain the current one for the Array
 - [ ] Greatly improve tensor indexing code quality
 - [ ] Make the array Shape describe how the memory representation is, whereas in my NeurlangAST keep track of what the desired shape is.
 - [ ] Implement matmul in pure Rust

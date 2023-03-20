@@ -124,10 +124,10 @@ where
         res_values
     }
 
-    pub fn slice(&self, axis: usize, index: usize) -> Self {
+    pub fn slice(&self, axis: usize, index: usize) -> Array<T, { N - 1 }> {
         let res_shape = self.shape.borrow().remove(axis);
         let res_values = self.slice_vector(axis, index);
-        Self::new(res_values, res_shape)
+        Array::new(res_values, res_shape)
     }
 
     pub fn reduce<F>(&self, axis: usize, reduce_f: F) -> Array<T, { N - 1 }>
@@ -175,13 +175,13 @@ where
     }
 
     // Movement ops
-    pub fn unsqueeze(&self, axis: usize) -> Self {
+    pub fn unsqueeze(&self, axis: usize) -> Array<T, { N + 1 }> {
         let new_shape = self.shape.borrow().insert(NewAxis::new(axis, 1));
-        Self::reference_values(self.values.clone(), new_shape)
+        Array::reference_values(self.values.clone(), new_shape)
     }
-    pub fn squeeze(&self, axis: usize) -> Self {
+    pub fn squeeze(&self, axis: usize) -> Array<T, { N - 1 }> {
         let new_shape = self.shape.borrow().remove(axis);
-        Self::reference_values(self.values.clone(), new_shape)
+        Array::reference_values(self.values.clone(), new_shape)
     }
 
     pub fn reshape<const M: usize>(&self, new_shape: Shape<M>) -> Array<T, M> {
