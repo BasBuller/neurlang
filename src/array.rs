@@ -188,7 +188,35 @@ where
         Self::reference_values(self.values.clone(), new_shape)
     }
 
-    pub fn permute(&self, new_order: Vec<usize>) -> Self {
+    fn collect_slice_iterator(&self, axis: usize, index: usize) -> Vec<T> {
+        let array = self.values.borrow();
+        let slice_iter = make_slice(&self.shape.borrow(), axis, index).into_iter();
+        let mut res_values = Vec::with_capacity(slice_iter.n_prefix * slice_iter.n_suffix);
+        for (start_idx, end_idx) in slice_iter {
+            res_values.extend_from_slice(&array[start_idx..end_idx]);
+        }
+
+        res_values
+    }
+
+    // pub fn permute(&self, permutation: Vec<usize>) -> Self {
+    //     let values = self.values.borrow();
+    //     let permutation_array = permutation.try_into().unwrap();
+    //     let permute_iter = PermutedTensorIterator::new(self.shape.borrow().clone(), permutation_array);
+
+    //     let new_shape = self.shape.borrow().permute(&permutation);
+    //     let mut new_values = Vec::with_capacity(values.len());
+    //     for (start_idx, end_idx) in permute_iter {
+    //         new_values.extend_from_slice(&values[start_idx..end_idx]);
+    //     }
+
+    //     Self::new(new_values, new_shape)
+    // }
+
+    // //////////////////
+    // Remainders
+    // //////////////////
+    pub fn permute_naive(&self, new_order: Vec<usize>) -> Self {
         let values = self.values.borrow();
         let new_shape = self.shape.borrow().permute(&new_order);
         let new_values = permute_naive(&values, &self.shape.borrow(), new_order);
