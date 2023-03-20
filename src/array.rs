@@ -199,19 +199,20 @@ where
         res_values
     }
 
-    // pub fn permute(&self, permutation: Vec<usize>) -> Self {
-    //     let values = self.values.borrow();
-    //     let permutation_array = permutation.try_into().unwrap();
-    //     let permute_iter = PermutedTensorIterator::new(self.shape.borrow().clone(), permutation_array);
+    pub fn permute(&self, permutation: [usize; N]) -> Self {
+        let values = self.values.borrow();
+        let permutation_array = permutation.try_into().unwrap();
+        let permute_iter =
+            PermutedTensorIterator::new(self.shape.borrow().clone(), permutation_array);
 
-    //     let new_shape = self.shape.borrow().permute(&permutation);
-    //     let mut new_values = Vec::with_capacity(values.len());
-    //     for (start_idx, end_idx) in permute_iter {
-    //         new_values.extend_from_slice(&values[start_idx..end_idx]);
-    //     }
+        let new_shape = self.shape.borrow().permute(permutation);
+        let mut new_values = Vec::with_capacity(values.len());
+        for (start_idx, end_idx) in permute_iter {
+            new_values.extend_from_slice(&values[start_idx..end_idx]);
+        }
 
-    //     Self::new(new_values, new_shape)
-    // }
+        Self::new(new_values, new_shape)
+    }
 
     // //////////////////
     // Remainders
@@ -398,36 +399,33 @@ mod tests {
         compare_slices(&target_shape, &res.shape.borrow().dimensions);
     }
 
-    // #[test]
-    // fn permute() {
-    //     let values = vec![1.0, 2.0, 3.0, 4.0];
-    //     let shape = Shape::new(vec![2, 2]);
-    //     let new_values = permute_naive(&values, &shape, vec![1, 0]);
-    //     let target = vec![1.0, 3.0, 2.0, 4.0];
-    //     compare_slices(&target, &new_values);
+    #[test]
+    fn permute() {
+        let values = Array::<f32, 2>::new(vec![1.0, 2.0, 3.0, 4.0], Shape::new([2, 2]));
+        let new_values = values.permute([1, 0]);
+        let target = vec![1.0, 3.0, 2.0, 4.0];
+        compare_slices(&target, &new_values.values.borrow());
 
-    //     let values = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
-    //     let shape = Shape::new(vec![2, 2, 2]);
-    //     let new_values = permute_naive(&values, &shape, vec![1, 0, 2]);
-    //     let target = vec![1.0, 2.0, 5.0, 6.0, 3.0, 4.0, 7.0, 8.0];
-    //     compare_slices(&target, &new_values);
+        let values = Array::<f32, 3>::new(
+            vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+            Shape::new([2, 2, 2]),
+        );
+        let new_values = values.permute([1, 0, 2]);
+        let target = vec![1.0, 2.0, 5.0, 6.0, 3.0, 4.0, 7.0, 8.0];
+        compare_slices(&target, &new_values.values.borrow());
 
-    //     let values = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
-    //     let shape = Shape::new(vec![2, 2, 2]);
-    //     let new_values = permute_naive(&values, &shape, vec![2, 1, 0]);
-    //     let target = vec![1.0, 5.0, 3.0, 7.0, 2.0, 6.0, 4.0, 8.0];
-    //     compare_slices(&target, &new_values);
+        let values = Array::<f32, 3>::new(
+            vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+            Shape::new([2, 2, 2]),
+        );
+        let new_values = values.permute([2, 1, 0]);
+        let target = vec![1.0, 5.0, 3.0, 7.0, 2.0, 6.0, 4.0, 8.0];
+        compare_slices(&target, &new_values.values.borrow());
 
-    //     let values = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
-    //     let shape = Shape::new(vec![1, 2, 3]);
-    //     let new_values = permute_naive(&values, &shape, vec![2, 1, 0]);
-    //     let target = vec![1.0, 4.0, 2.0, 5.0, 3.0, 6.0];
-    //     compare_slices(&target, &new_values);
-
-    //     let values = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
-    //     let shape = Shape::new(vec![1, 2, 3]);
-    //     let new_values = permute_naive(&values, &shape, vec![1, 2, 0]);
-    //     let target = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
-    //     compare_slices(&target, &new_values);
-    // }
+        let values =
+            Array::<f32, 3>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], Shape::new([1, 2, 3]));
+        let new_values = values.permute([1, 2, 0]);
+        let target = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        compare_slices(&target, &new_values.values.borrow());
+    }
 }
