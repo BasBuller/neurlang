@@ -358,11 +358,56 @@ mod tests {
         assert_eq!(indices, target_indices);
     }
 
-    // #[test]
-    // fn permuted_tensor_iterator() {
-    //     let shape = Shape::new(vec![2, 2, 2]);
-    //     let permutation = [1, 0, 2];
-    //     let iterator = PermutedTensorIterator::new(shape, permutation);
-    //     let results = iterator.into_iter().collect::<Vec<_>>();
-    // }
+    #[test]
+    fn permuted_tensor_iterator() {
+        let shape = Shape::new(vec![2, 2, 2]);
+        let permutation = [0, 1, 2];
+        let preds = PermutedTensorIterator::new(shape, permutation)
+            .into_iter()
+            .collect::<Vec<_>>();
+        let results = vec![(0, 8)];
+        assert_eq!(preds, results);
+
+        let shape = Shape::new(vec![2, 2, 2]);
+        let permutation = [1, 0, 2];
+        let preds = PermutedTensorIterator::new(shape, permutation)
+            .into_iter()
+            .collect::<Vec<_>>();
+        let results = vec![(0, 2), (4, 6), (2, 4), (6, 8)];
+        assert_eq!(preds, results);
+
+        let shape = Shape::new(vec![2, 2, 2]);
+        let permutation = [1, 2, 0];
+        let preds = PermutedTensorIterator::new(shape, permutation)
+            .into_iter()
+            .collect::<Vec<_>>();
+        let results = vec![
+            (0, 1),
+            (4, 5),
+            (1, 2),
+            (5, 6),
+            (2, 3),
+            (6, 7),
+            (3, 4),
+            (7, 8),
+        ];
+        assert_eq!(preds, results);
+
+        let shape = Shape::new(vec![2, 2, 2]);
+        let permutation = [2, 1, 0];
+        let preds = PermutedTensorIterator::new(shape, permutation)
+            .into_iter()
+            .collect::<Vec<_>>();
+        let results = vec![
+            (0, 1),
+            (4, 5),
+            (2, 3),
+            (6, 7),
+            (1, 2),
+            (5, 6),
+            (3, 4),
+            (7, 8),
+        ];
+        assert_eq!(preds, results);
+    }
 }

@@ -22,14 +22,14 @@ When performing matrix multiplication you ideally want to iterate over the **row
 - [x] Implement reshape
     - [ ] Improve the assertions of the reshape operation to make sure the dimensions are properly split/collapsed
 - [x] Implement permute, the naive version to understand how it works
-    - [ ] Improve into a performant version by using my slice iterators instead of collecting intermediate results into vectors. Can likely do so in the following way:
+    - [x] Improve into a performant version by using my slice iterators instead of collecting intermediate results into vectors. Can likely do so in the following way:
         1. Chain iterators for reading all the slices from the original array.
             - Might be able to use __enumerate__ to slice into a slice properly!
             - However, seems more likely that an efficient index operator the allows for slices will work better. This way I can have an iterator type that goes through the backing memory just once, and hence does not need to allocate much intermediate memory.
         2. Collect the resulting slices into a new vector only once
+- [ ] Move to const generics shape?
 - [ ] Greatly improve tensor indexing code quality
 - [ ] Make the array Shape describe how the memory representation is, whereas in my NeurlangAST keep track of what the desired shape is.
-- [ ] Move to const generics shape?
 - [ ] Implement matmul in pure Rust
 - [ ] Enable BLAS matmul
 - [ ] Maybe I need to implement the tensorproduct like in Numpy? That enables essentially all types of tensor operations
