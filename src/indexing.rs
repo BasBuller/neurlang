@@ -6,8 +6,8 @@ use num::Float;
 // Slicing
 // //////////////////
 #[derive(Debug, Clone, Copy)]
-pub struct Slice<'a> {
-    shape: &'a Shape,
+pub struct Slice<'a, const N: usize> {
+    shape: &'a Shape<N>,
     axis: usize,
     index: usize,
 }
@@ -20,7 +20,7 @@ pub struct SliceIterator {
     prefix_idx: usize,
 }
 
-impl<'a> IntoIterator for Slice<'a> {
+impl<'a, const N: usize> IntoIterator for Slice<'a, N> {
     type Item = (usize, usize);
     type IntoIter = SliceIterator;
 
@@ -57,11 +57,16 @@ impl Iterator for SliceIterator {
 // /////////////////////////
 // Permute
 // /////////////////////////
-pub fn make_slice(shape: &Shape, axis: usize, index: usize) -> Slice {
+pub fn make_slice<const N: usize>(shape: &Shape<N>, axis: usize, index: usize) -> Slice<N> {
     Slice { shape, axis, index }
 }
 
-fn slice_vector<T: Float>(values: &Vec<T>, shape: &Shape, axis: usize, index: usize) -> Vec<T> {
+fn slice_vector<T: Float, const N: usize>(
+    values: &Vec<T>,
+    shape: &Shape<N>,
+    axis: usize,
+    index: usize,
+) -> Vec<T> {
     let slice_iter = make_slice(shape, axis, index).into_iter();
     let mut res_values = Vec::with_capacity(slice_iter.n_prefix * slice_iter.n_suffix);
     for (start_idx, end_idx) in slice_iter {
@@ -70,40 +75,38 @@ fn slice_vector<T: Float>(values: &Vec<T>, shape: &Shape, axis: usize, index: us
     res_values
 }
 
-pub fn permute_naive<T: Float>(
-    values: &Vec<T>,
-    current_shape: &Shape,
-    new_shape: Vec<usize>,
-) -> Vec<T> {
-    if new_shape.len() == 1 {
-        values.clone()
-    } else {
-        let new_slice_shape = new_shape[1..]
-            .iter()
-            .map(|&val| if val < new_shape[0] { val } else { val - 1 })
-            .collect::<Vec<_>>();
-        let mut current_slice_shape = current_shape.dimensions.clone();
-        current_slice_shape.remove(new_shape[0]);
-        let current_slice_shape = Shape::new(current_slice_shape);
+// pub fn permute_naive<T: Float, const N: usize>(
+//     values: &Vec<T>,
+//     current_shape: &Shape<N>,
+//     new_shape: [usize; N],
+// ) -> Vec<T> {
+//     if new_shape.len() == 1 {
+//         values.clone()
+//     } else {
+//         let new_slice_shape = new_shape[1..]
+//             .iter()
+//             .map(|&val| if val < new_shape[0] { val } else { val - 1 })
+//             .collect::<Vec<_>>();
+//         let current_slice_shape = current_shape.remove(new_shape[0]);
 
-        let dim_size = current_shape.dimensions[new_shape[0]];
-        let new_array = (0..dim_size)
-            .flat_map(|dim_value| {
-                let slice = slice_vector(values, current_shape, new_shape[0], dim_value);
-                let slice = permute_naive(&slice, &current_slice_shape, new_slice_shape.clone());
-                slice
-            })
-            .collect::<Vec<_>>();
+//         let dim_size = current_shape.dimensions[new_shape[0]];
+//         let new_array = (0..dim_size)
+//             .flat_map(|dim_value| {
+//                 let slice = slice_vector(values, current_shape, new_shape[0], dim_value);
+//                 let slice = permute_naive(&slice, &current_slice_shape, new_slice_shape.clone());
+//                 slice
+//             })
+//             .collect::<Vec<_>>();
 
-        new_array
-    }
-}
+//         new_array
+//     }
+// }
 
 // /////////////////////////
 // Iterate over tensor indices
 // /////////////////////////
 pub struct TensorIterator<const N: usize> {
-    shape: Shape,
+    shape: Shape<N>,
     memory_layout: MemoryLayout,
     return_index: [usize; N],
     count: usize,
@@ -111,7 +114,7 @@ pub struct TensorIterator<const N: usize> {
 }
 
 impl<const N: usize> TensorIterator<N> {
-    pub fn new(shape: Shape, memory_layout: MemoryLayout) -> TensorIterator<N> {
+    pub fn new(shape: Shape<N>, memory_layout: MemoryLayout) -> TensorIterator<N> {
         let nelem = shape.nelem();
         TensorIterator {
             shape: shape,
@@ -182,7 +185,7 @@ pub struct PermutedTensorIterator<const N: usize> {
 }
 
 impl<const N: usize> PermutedTensorIterator<N> {
-    pub fn new(shape: Shape, permutation: [usize; N]) -> Self {
+    pub fn new(shape: Shape<N>, permutation: [usize; N]) -> Self {
         let mut block_size = 1;
         let mut n_ordered_trailing_axes = 0;
         for (dim1, &dim2) in (0..N).rev().zip(permutation.iter().rev()) {
@@ -280,37 +283,37 @@ mod tests {
 
     #[test]
     fn slicing_iterator() {
-        let shape = Shape::new(vec![2, 2, 2]);
+        let shape = Shape::new([2, 2, 2]);
         let slice = make_slice(&shape, 0, 0);
         let target_indices = vec![(0, 4)];
         let slice_indices = slice.into_iter().collect::<Vec<_>>();
         assert_eq!(target_indices, slice_indices);
 
-        let shape = Shape::new(vec![2, 2, 2]);
+        let shape = Shape::new([2, 2, 2]);
         let slice = make_slice(&shape, 0, 1);
         let target_indices = vec![(4, 8)];
         let slice_indices = slice.into_iter().collect::<Vec<_>>();
         assert_eq!(target_indices, slice_indices);
 
-        let shape = Shape::new(vec![2, 2, 2]);
+        let shape = Shape::new([2, 2, 2]);
         let slice = make_slice(&shape, 1, 0);
         let target_indices = vec![(0, 2), (4, 6)];
         let slice_indices = slice.into_iter().collect::<Vec<_>>();
         assert_eq!(target_indices, slice_indices);
 
-        let shape = Shape::new(vec![2, 2, 2]);
+        let shape = Shape::new([2, 2, 2]);
         let slice = make_slice(&shape, 1, 1);
         let target_indices = vec![(2, 4), (6, 8)];
         let slice_indices = slice.into_iter().collect::<Vec<_>>();
         assert_eq!(target_indices, slice_indices);
 
-        let shape = Shape::new(vec![2, 2, 2]);
+        let shape = Shape::new([2, 2, 2]);
         let slice = make_slice(&shape, 2, 0);
         let target_indices = vec![(0, 1), (2, 3), (4, 5), (6, 7)];
         let slice_indices = slice.into_iter().collect::<Vec<_>>();
         assert_eq!(target_indices, slice_indices);
 
-        let shape = Shape::new(vec![2, 2, 2]);
+        let shape = Shape::new([2, 2, 2]);
         let slice = make_slice(&shape, 2, 1);
         let target_indices = vec![(1, 2), (3, 4), (5, 6), (7, 8)];
         let slice_indices = slice.into_iter().collect::<Vec<_>>();
@@ -319,7 +322,7 @@ mod tests {
 
     #[test]
     fn indexing_iterator() {
-        let shape = Shape::new(vec![2, 2, 2]);
+        let shape = Shape::new([2, 2, 2]);
         let layout = MemoryLayout::RowMajor;
         let tensor_iter: TensorIterator<3> = TensorIterator::new(shape, layout);
         let indices = tensor_iter.into_iter().collect::<Vec<_>>();
@@ -338,7 +341,7 @@ mod tests {
         .collect::<Vec<_>>();
         assert_eq!(indices, target_indices);
 
-        let shape = Shape::new(vec![2, 2, 2]);
+        let shape = Shape::new([2, 2, 2]);
         let layout = MemoryLayout::ColumnMajor;
         let tensor_iter: TensorIterator<3> = TensorIterator::new(shape, layout);
         let indices = tensor_iter.into_iter().collect::<Vec<_>>();
@@ -360,7 +363,7 @@ mod tests {
 
     #[test]
     fn permuted_tensor_iterator() {
-        let shape = Shape::new(vec![2, 2, 2]);
+        let shape = Shape::new([2, 2, 2]);
         let permutation = [0, 1, 2];
         let preds = PermutedTensorIterator::new(shape, permutation)
             .into_iter()
@@ -368,7 +371,7 @@ mod tests {
         let results = vec![(0, 8)];
         assert_eq!(preds, results);
 
-        let shape = Shape::new(vec![2, 2, 2]);
+        let shape = Shape::new([2, 2, 2]);
         let permutation = [1, 0, 2];
         let preds = PermutedTensorIterator::new(shape, permutation)
             .into_iter()
@@ -376,7 +379,7 @@ mod tests {
         let results = vec![(0, 2), (4, 6), (2, 4), (6, 8)];
         assert_eq!(preds, results);
 
-        let shape = Shape::new(vec![2, 2, 2]);
+        let shape = Shape::new([2, 2, 2]);
         let permutation = [1, 2, 0];
         let preds = PermutedTensorIterator::new(shape, permutation)
             .into_iter()
@@ -393,7 +396,7 @@ mod tests {
         ];
         assert_eq!(preds, results);
 
-        let shape = Shape::new(vec![2, 2, 2]);
+        let shape = Shape::new([2, 2, 2]);
         let permutation = [2, 1, 0];
         let preds = PermutedTensorIterator::new(shape, permutation)
             .into_iter()
