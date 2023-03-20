@@ -146,7 +146,7 @@ fn squeeze_unsqueeze_benchmark(c: &mut Criterion) {
 
 fn permute_benchmark(c: &mut Criterion) {
     let (array, _) = setup(vec![5000, 5000]);
-    
+
     c.bench_function("Permute array", |b| b.iter(|| array.permute(vec![1, 0])));
 }
 

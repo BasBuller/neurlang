@@ -24,7 +24,10 @@ pub struct NewAxis {
 }
 impl NewAxis {
     pub fn new(index: usize, axis_size: usize) -> Self {
-        NewAxis { index: index, axis_size: axis_size }
+        NewAxis {
+            index: index,
+            axis_size: axis_size,
+        }
     }
 }
 
@@ -42,13 +45,13 @@ impl Shape {
         new_dimensions.remove(index);
         Self::new(new_dimensions)
     }
-    
+
     pub fn insert(&self, new_axis: NewAxis) -> Self {
         let mut new_dimensions = self.dimensions.clone();
         new_dimensions.insert(new_axis.index, new_axis.axis_size);
         Self::new(new_dimensions)
     }
-    
+
     pub fn permute(&self, new_order: &Vec<usize>) -> Self {
         let new_shape = new_order
             .iter()
