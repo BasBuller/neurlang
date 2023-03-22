@@ -147,7 +147,6 @@ fn permute_benchmark(c: &mut Criterion) {
     let (array, _) = setup([5000, 5000]);
 
     let mut group = c.benchmark_group("Permute");
-    // group.bench_function("naive", |b| b.iter(|| array.permute_naive(vec![1, 0])));
     group.bench_function("normal", |b| b.iter(|| array.permute([1, 0])));
 }
 

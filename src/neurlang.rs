@@ -35,11 +35,7 @@ impl NewAxis {
 pub struct Shape<const N: usize> {
     pub dimensions: [usize; N],
 }
-impl<const N: usize> Shape<N>
-// where
-//     [usize; {N - 1}]: Sized,
-//     [usize; {N + 1}]: Sized
-{
+impl<const N: usize> Shape<N> {
     pub fn new(dimensions: [usize; N]) -> Self {
         Shape { dimensions }
     }
@@ -56,7 +52,7 @@ impl<const N: usize> Shape<N>
 
     pub fn insert(&self, new_axis: NewAxis) -> Shape<{ N + 1 }>
     where
-        [usize; { N + 1 }]: Sized,
+        [usize; N + 1]: Sized,
     {
         let mut new_dimensions = [0; { N + 1 }];
         new_dimensions[0..new_axis.index].copy_from_slice(&self.dimensions[0..new_axis.index]);
@@ -75,11 +71,50 @@ impl<const N: usize> Shape<N>
 
     pub fn len(&self) -> usize {
         N
-        // self.dimensions.len()
     }
 
     pub fn nelem(&self) -> usize {
         count_elements(&self.dimensions)
+    }
+
+    fn make_ordered_index_array(
+        &self,
+        permuted_index: &[usize; N],
+        permutation_order: &[usize; N],
+    ) -> [usize; N] {
+        let mut res = [0; N];
+        for (&idx, &value) in permutation_order.iter().zip(permuted_index.iter()) {
+            res[idx] = value;
+        }
+        return res;
+    }
+
+    fn permute_index_array(
+        &self,
+        ordered_index: &[usize; N],
+        permutation_order: &[usize; N],
+    ) -> [usize; N] {
+        let mut res = [0; N];
+        for (&idx, &value) in permutation_order.iter().zip(ordered_index.iter()) {
+            res[idx] = value;
+        }
+        return res;
+    }
+
+    fn linear_index_to_array_index(
+        &self,
+        linear_index: usize,
+        axes_size: &[usize; N],
+    ) -> [usize; N] {
+        unimplemented!()
+    }
+
+    fn array_index_to_linear_index(
+        &self,
+        array_index: [usize; N],
+        axes_size: &[usize; N],
+    ) -> usize {
+        unimplemented!()
     }
 }
 

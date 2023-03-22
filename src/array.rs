@@ -199,6 +199,16 @@ where
         res_values
     }
 
+    /// TODO New design:
+    ///     Iterate over the storing array in chunks of [prod final ordered arrays] to minimize reads.
+    ///     For each slice read determine its target positions in the permuted array and memcpy it there.
+    // pub fn permute(&self, permutation: [usize; N]) -> Self {
+    //     let shape = self.shape.borrow();
+    //     let mut results = Vec::with_capacity(self.values.borrow().len());
+    //     // for (idx, &value) in self.values.borrow().iter().enumerate() {
+    //     // }
+    // }
+
     pub fn permute(&self, permutation: [usize; N]) -> Self {
         let values = self.values.borrow();
         let permutation_array = permutation.try_into().unwrap();
@@ -206,23 +216,13 @@ where
             PermutedTensorIterator::new(self.shape.borrow().clone(), permutation_array);
 
         let new_shape = self.shape.borrow().permute(permutation);
-        let mut new_values = Vec::with_capacity(values.len());
+        let mut new_values = Vec::with_capacity(values.len() + 100);
         for (start_idx, end_idx) in permute_iter {
             new_values.extend_from_slice(&values[start_idx..end_idx]);
         }
 
         Self::new(new_values, new_shape)
     }
-
-    // //////////////////
-    // Remainders
-    // //////////////////
-    // pub fn permute_naive(&self, new_order: [usize; N]) -> Self {
-    //     let values = self.values.borrow();
-    //     let new_shape = self.shape.borrow().permute(new_order.clone());
-    //     let new_values = permute_naive(&values, &self.shape.borrow(), new_order);
-    //     Self::new(new_values, new_shape)
-    // }
 
     // Higher order ops
     pub fn matmul(&self, right_array: &Array<T, N>) -> Self {
