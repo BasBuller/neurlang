@@ -202,32 +202,49 @@ where
     /// TODO New design:
     ///     Iterate over the storing array in chunks of [prod final ordered arrays] to minimize reads.
     ///     For each slice read determine its target positions in the permuted array and memcpy it there.
-    // pub fn permute(&self, permutation: [usize; N]) -> Self {
-    //     let shape = self.shape.borrow();
-    //     let mut results = Vec::with_capacity(self.values.borrow().len());
-    //     // for (idx, &value) in self.values.borrow().iter().enumerate() {
-    //     // }
-    // }
-
     pub fn permute(&self, permutation: [usize; N]) -> Self {
-        let values = self.values.borrow();
-        let permutation_array = permutation.try_into().unwrap();
-        let permute_iter =
-            PermutedTensorIterator::new(self.shape.borrow().clone(), permutation_array);
+        let shape = self.shape.borrow();
+        let ordered_dimensions_lengths = rolling_dimensions_lengths(&shape.dimensions);
+        let permuted_shape = Shape::permute_index_array(&shape.dimensions, &permutation);
+        let permuted_dimensions_lengths = rolling_dimensions_lengths(&permuted_shape);
 
-        let new_shape = self.shape.borrow().permute(permutation);
-        let mut new_values = Vec::with_capacity(values.len() + 100);
-        for (start_idx, end_idx) in permute_iter {
-            new_values.extend_from_slice(&values[start_idx..end_idx]);
+        let mut results = Vec::with_capacity(self.values.borrow().len());
+        for (idx, &value) in self.values.borrow().iter().enumerate() {
+            let ordered_array_index = Shape::linear_index_to_array_index(idx, &ordered_dimensions_lengths);
+            let permuted_array_index = Shape::permute_index_array(&ordered_array_index, &permutation);
+            let permuted_linear_index = Shape::array_index_to_linear_index(&permuted_array_index, &permuted_dimensions_lengths);
+            results[permuted_linear_index] = value;
         }
-
-        Self::new(new_values, new_shape)
+        Self::new(results, shape.clone())
     }
+
+    // pub fn permute(&self, permutation: [usize; N]) -> Self {
+    //     let values = self.values.borrow();
+    //     let permutation_array = permutation.try_into().unwrap();
+    //     let permute_iter =
+    //         PermutedTensorIterator::new(self.shape.borrow().clone(), permutation_array);
+
+    //     let new_shape = self.shape.borrow().permute(permutation);
+    //     let mut new_values = Vec::with_capacity(values.len() + 100);
+    //     for (start_idx, end_idx) in permute_iter {
+    //         new_values.extend_from_slice(&values[start_idx..end_idx]);
+    //     }
+
+    //     Self::new(new_values, new_shape)
+    // }
 
     // Higher order ops
     pub fn matmul(&self, right_array: &Array<T, N>) -> Self {
         self.clone()
     }
+}
+
+fn rolling_dimensions_lengths<const N: usize>(dimensions: &[usize; N]) -> [usize; N] {
+    let mut results = [0; N];
+    for idx in 0..N {
+        results[idx] = dimensions[idx..].iter().fold(1, |res, &val| res * val);
+    }
+    results
 }
 
 // impl<T> ExecuteAST for Array<T>

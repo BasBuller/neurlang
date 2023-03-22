@@ -77,8 +77,7 @@ impl<const N: usize> Shape<N> {
         count_elements(&self.dimensions)
     }
 
-    fn make_ordered_index_array(
-        &self,
+    pub fn make_ordered_index_array(
         permuted_index: &[usize; N],
         permutation_order: &[usize; N],
     ) -> [usize; N] {
@@ -89,8 +88,7 @@ impl<const N: usize> Shape<N> {
         return res;
     }
 
-    fn permute_index_array(
-        &self,
+    pub fn permute_index_array(
         ordered_index: &[usize; N],
         permutation_order: &[usize; N],
     ) -> [usize; N] {
@@ -101,20 +99,24 @@ impl<const N: usize> Shape<N> {
         return res;
     }
 
-    fn linear_index_to_array_index(
-        &self,
+    pub fn linear_index_to_array_index(
         linear_index: usize,
-        axes_size: &[usize; N],
+        linear_axes_sizes: &[usize; N],
     ) -> [usize; N] {
-        unimplemented!()
+        let mut results = [1; N];
+        let mut counter = linear_index;
+        for (idx, &size) in linear_axes_sizes.iter().enumerate() {
+            results[idx] = counter / size;
+            counter = counter % size;
+        }
+        results
     }
 
-    fn array_index_to_linear_index(
-        &self,
-        array_index: [usize; N],
-        axes_size: &[usize; N],
+    pub fn array_index_to_linear_index(
+        array_index: &[usize; N],
+        axes_sizes: &[usize; N],
     ) -> usize {
-        unimplemented!()
+        array_index.iter().zip(axes_sizes.iter()).fold(0, |res, (&idx, &size)| res + (idx * size))
     }
 }
 
@@ -402,4 +404,46 @@ pub trait ExecuteAST {
 
     // // Maybe want to include this? Does make for a way nicer experience
     // fn tensordot_v(&self, right_value: &Self, left_axes: &[usize], right_axes: &[usize]) -> Self;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn linear_to_array_index() {
+        let linear_axes_lengths = [4, 2, 1];
+        
+        let res = Shape::linear_index_to_array_index(0, &linear_axes_lengths);
+        let target = [0, 0, 0];
+        assert_eq!(res, target);
+
+        let res = Shape::linear_index_to_array_index(1, &linear_axes_lengths);
+        let target = [0, 0, 1];
+        assert_eq!(res, target);
+
+        let res = Shape::linear_index_to_array_index(2, &linear_axes_lengths);
+        let target = [0, 1, 0];
+        assert_eq!(res, target);
+
+        let res = Shape::linear_index_to_array_index(3, &linear_axes_lengths);
+        let target = [0, 1, 1];
+        assert_eq!(res, target);
+
+        let res = Shape::linear_index_to_array_index(4, &linear_axes_lengths);
+        let target = [1, 0, 0];
+        assert_eq!(res, target);
+
+        let res = Shape::linear_index_to_array_index(5, &linear_axes_lengths);
+        let target = [1, 0, 1];
+        assert_eq!(res, target);
+
+        let res = Shape::linear_index_to_array_index(6, &linear_axes_lengths);
+        let target = [1, 1, 0];
+        assert_eq!(res, target);
+
+        let res = Shape::linear_index_to_array_index(7, &linear_axes_lengths);
+        let target = [1, 1, 1];
+        assert_eq!(res, target);
+    }
 }
