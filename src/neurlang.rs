@@ -1,4 +1,4 @@
-use crate::utils::count_elements;
+use crate::utils::{count_elements, rolling_dimensions_lengths};
 use std::rc::Rc;
 
 #[derive(Debug, Clone)]
@@ -32,12 +32,21 @@ impl NewAxis {
 }
 
 #[derive(Debug, Clone)]
+pub struct PadAxis<T> {
+    pub prefix_count: usize,
+    pub suffix_count: usize,
+    pub pad_value: T,
+}
+
+#[derive(Debug, Clone)]
 pub struct Shape<const N: usize> {
     pub dimensions: [usize; N],
+    pub strides: [usize; N],
 }
 impl<const N: usize> Shape<N> {
     pub fn new(dimensions: [usize; N]) -> Self {
-        Shape { dimensions }
+        let strides = rolling_dimensions_lengths(&dimensions);
+        Shape { dimensions, strides }
     }
 
     pub fn remove(&self, index: ReduceAxis) -> Shape<{ N - 1 }>
@@ -112,11 +121,11 @@ impl<const N: usize> Shape<N> {
         results
     }
 
-    pub fn array_index_to_linear_index(
-        array_index: &[usize; N],
-        axes_sizes: &[usize; N],
-    ) -> usize {
-        array_index.iter().zip(axes_sizes.iter()).fold(0, |res, (&idx, &size)| res + (idx * size))
+    pub fn array_index_to_linear_index(array_index: &[usize; N], axes_sizes: &[usize; N]) -> usize {
+        array_index
+            .iter()
+            .zip(axes_sizes.iter())
+            .fold(0, |res, (&idx, &size)| res + (idx * size))
     }
 }
 
@@ -151,30 +160,30 @@ pub enum ASTOp<T: ExecuteAST, const N: usize> {
         left_value: Rc<ASTNode<T, N>>,
         right_value: Rc<ASTNode<T, N>>,
     },
-    // Sub {
-    //     left_value: Rc<ASTNode<T, N>>,
-    //     right_value: Rc<ASTNode<T, N>>,
-    // },
-    // Mul {
-    //     left_value: Rc<ASTNode<T, N>>,
-    //     right_value: Rc<ASTNode<T, N>>,
-    // },
-    // Div {
-    //     left_value: Rc<ASTNode<T, N>>,
-    //     right_value: Rc<ASTNode<T, N>>,
-    // },
-    // Pow {
-    //     left_value: Rc<ASTNode<T, N>>,
-    //     right_value: Rc<ASTNode<T, N>>,
-    // },
-    // CompareEqual {
-    //     left_value: Rc<ASTNode<T, N>>,
-    //     right_value: Rc<ASTNode<T, N>>,
-    // },
-    // Max {
-    //     left_value: Rc<ASTNode<T, N>>,
-    //     right_value: Rc<ASTNode<T, N>>,
-    // },
+    Sub {
+        left_value: Rc<ASTNode<T, N>>,
+        right_value: Rc<ASTNode<T, N>>,
+    },
+    Mul {
+        left_value: Rc<ASTNode<T, N>>,
+        right_value: Rc<ASTNode<T, N>>,
+    },
+    Div {
+        left_value: Rc<ASTNode<T, N>>,
+        right_value: Rc<ASTNode<T, N>>,
+    },
+    Pow {
+        left_value: Rc<ASTNode<T, N>>,
+        right_value: Rc<ASTNode<T, N>>,
+    },
+    CompareEqual {
+        left_value: Rc<ASTNode<T, N>>,
+        right_value: Rc<ASTNode<T, N>>,
+    },
+    Max {
+        left_value: Rc<ASTNode<T, N>>,
+        right_value: Rc<ASTNode<T, N>>,
+    },
 
     // Reduce
     Reduce {
@@ -196,10 +205,10 @@ pub enum ASTOp<T: ExecuteAST, const N: usize> {
         value: Rc<ASTNode<T, N>>,
         new_shape: Shape<N>,
     },
-    // Permute {
-    //     value: Rc<ASTNode<T, N>>,
-    //     dim_order: Vec<usize>,
-    // },
+    Permute {
+        value: Rc<ASTNode<T, N>>,
+        dim_order: Vec<usize>,
+    },
     // Pad {
     //     value: Rc<ASTNode<T, N>>,
     //     dim: usize,
@@ -360,14 +369,41 @@ where
             ASTOp::Negate { value } => value.execute().negate_v(),
             ASTOp::Exponential { value } => value.execute().exp_v(),
             ASTOp::Log { value } => value.execute().log_v(),
+
             ASTOp::Add {
                 left_value,
                 right_value,
             } => left_value.execute().add_v(&right_value.execute()),
+            ASTOp::Sub {
+                left_value,
+                right_value,
+            } => left_value.execute().sub_v(&right_value.execute()),
+            ASTOp::Mul {
+                left_value,
+                right_value,
+            } => left_value.execute().mul_v(&right_value.execute()),
+            ASTOp::Div {
+                left_value,
+                right_value,
+            } => left_value.execute().div_v(&right_value.execute()),
+            ASTOp::Pow {
+                left_value,
+                right_value,
+            } => left_value.execute().pow_v(&right_value.execute()),
+            ASTOp::CompareEqual {
+                left_value,
+                right_value,
+            } => left_value.execute().compare_equal_v(&right_value.execute()),
+            ASTOp::Max {
+                left_value,
+                right_value,
+            } => left_value.execute().max_v(&right_value.execute()),
+
             ASTOp::Reduce { value, dim, op } => value.execute().reduce_v(*dim, *op),
             ASTOp::Unsqueeze { value, dim } => value.execute().unsqueeze_v(*dim),
             ASTOp::Squeeze { value, dim } => value.execute().squeeze_v(*dim),
             ASTOp::Reshape { value, new_shape } => value.execute().reshape_v(new_shape.clone()),
+            ASTOp::Permute { value, dim_order } => value.execute().permute_v(dim_order),
         }
     }
 }
@@ -383,11 +419,11 @@ pub trait ExecuteAST {
 
     // Binary
     fn add_v(&self, right_value: &Self) -> Self;
-    // fn sub_v(&self, right_value: &Self) -> Self;
-    // fn mul_v(&self, right_value: &Self) -> Self;
-    // fn div_v(&self, right_value: &Self) -> Self;
-    // fn pow_v(&self, right_value: &Self) -> Self;
-    // fn compare_equal_v(&self, right_value: &Self) -> Self;
+    fn sub_v(&self, right_value: &Self) -> Self;
+    fn mul_v(&self, right_value: &Self) -> Self;
+    fn div_v(&self, right_value: &Self) -> Self;
+    fn pow_v(&self, right_value: &Self) -> Self;
+    fn compare_equal_v(&self, right_value: &Self) -> Self;
     fn max_v(&self, right_value: &Self) -> Self;
 
     // Reduce
@@ -397,10 +433,9 @@ pub trait ExecuteAST {
     fn unsqueeze_v(&self, dim: usize) -> Self;
     fn squeeze_v(&self, dim: usize) -> Self;
     fn reshape_v<const N: usize>(&self, new_shape: Shape<N>) -> Self;
-    // fn permute_v(&self, axis_ordering: &[usize]) -> Self;
-    // // fn pad_v(&self, ...) -> Self;
-    // // fn shrink_v(&self, ...) -> Self;
-    // // fn stride_v(&self, ...) -> Self;
+    fn permute_v(&self, axis_ordering: &[usize]) -> Self;
+    // fn pad_v(&self, ...) -> Self;
+    // fn stride_v(&self, ...) -> Self;
 
     // // Maybe want to include this? Does make for a way nicer experience
     // fn tensordot_v(&self, right_value: &Self, left_axes: &[usize], right_axes: &[usize]) -> Self;
@@ -413,7 +448,7 @@ mod tests {
     #[test]
     fn linear_to_array_index() {
         let linear_axes_lengths = [4, 2, 1];
-        
+
         let res = Shape::linear_index_to_array_index(0, &linear_axes_lengths);
         let target = [0, 0, 0];
         assert_eq!(res, target);

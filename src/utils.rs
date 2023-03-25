@@ -13,3 +13,11 @@ pub fn outer_product<T: Copy + Sized>(major_vals: &Vec<Vec<T>>, minor_vals: &[T]
     }
     res_values
 }
+
+pub fn rolling_dimensions_lengths<const N: usize>(dimensions: &[usize; N]) -> [usize; N] {
+    let mut results = [1; N];
+    for idx in 1..N {
+        results[idx - 1] = dimensions[idx..].iter().fold(1, |res, &val| res * val);
+    }
+    results
+}

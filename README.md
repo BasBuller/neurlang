@@ -34,7 +34,8 @@ When performing matrix multiplication you ideally want to iterate over the **row
 - [ ] Implement matmul in pure Rust
 - [ ] Enable BLAS matmul
 - [ ] Maybe I need to implement the tensorproduct like in Numpy? That enables essentially all types of tensor operations
-    - [ ] If done properly this can also be rather speedy, because I can write logic to reason about how to optimize the iteration
+    - This probably is nothing more than a generalization of matmul - ie dot product over the last and first dimension of two tensors. Implementing this efficiently is most likely a matter of reshaping and combining axes in a smart way.
+    - If done properly this can also be rather speedy, because I can write logic to reason about how to optimize the iteration
 
 ### When implement column major ordering, if at all?
 - [ ] Enable slicing in column major arrays by taking $array_len - row_major_indexer$

@@ -1,6 +1,6 @@
 use crate::indexing::*;
-use crate::neurlang::{ExecuteAST, MemoryLayout, NewAxis, ReduceAxis, ReduceOp, Shape};
-use crate::utils::count_elements;
+use crate::neurlang::{ExecuteAST, MemoryLayout, NewAxis, PadAxis, ReduceAxis, ReduceOp, Shape};
+use crate::utils::{count_elements, rolling_dimensions_lengths};
 
 use num::Float;
 use rand::prelude::*;
@@ -199,9 +199,6 @@ where
         res_values
     }
 
-    /// TODO New design:
-    ///     Iterate over the storing array in chunks of [prod final ordered arrays] to minimize reads.
-    ///     For each slice read determine its target positions in the permuted array and memcpy it there.
     pub fn permute(&self, permutation: [usize; N]) -> Self {
         let shape = self.shape.borrow();
         let ordered_dimensions_lengths = rolling_dimensions_lengths(&shape.dimensions);
@@ -211,41 +208,35 @@ where
         let cur_values = self.values.borrow();
         let mut results = vec![cur_values[0]; cur_values.len()];
         for (idx, &value) in cur_values.iter().enumerate() {
-            let ordered_array_index = Shape::linear_index_to_array_index(idx, &ordered_dimensions_lengths);
-            let permuted_array_index = Shape::permute_index_array(&ordered_array_index, &permutation);
-            let permuted_linear_index = Shape::array_index_to_linear_index(&permuted_array_index, &permuted_dimensions_lengths);
+            let ordered_array_index =
+                Shape::linear_index_to_array_index(idx, &ordered_dimensions_lengths);
+            let permuted_array_index =
+                Shape::permute_index_array(&ordered_array_index, &permutation);
+            let permuted_linear_index = Shape::array_index_to_linear_index(
+                &permuted_array_index,
+                &permuted_dimensions_lengths,
+            );
             results[permuted_linear_index] = value;
         }
         Self::new(results, shape.clone())
     }
 
-    // pub fn permute(&self, permutation: [usize; N]) -> Self {
-    //     let values = self.values.borrow();
-    //     let permutation_array = permutation.try_into().unwrap();
-    //     let permute_iter =
-    //         PermutedTensorIterator::new(self.shape.borrow().clone(), permutation_array);
-
-    //     let new_shape = self.shape.borrow().permute(permutation);
-    //     let mut new_values = Vec::with_capacity(values.len() + 100);
-    //     for (start_idx, end_idx) in permute_iter {
-    //         new_values.extend_from_slice(&values[start_idx..end_idx]);
-    //     }
-
-    //     Self::new(new_values, new_shape)
+    // pub fn pad(&self, padding_size: [PadAxis<T>; N]) -> Self {
+    //     let new_dim_sizes = self
+    //         .shape
+    //         .borrow()
+    //         .dimensions
+    //         .iter()
+    //         .zip(padding_size.iter())
+    //         .map(|(&dim_size, padding)| dim_size + padding.prefix_count + padding.suffix_count)
+    //         .fold(1, |res, dim_size| res * dim_size);
+    //     let mut new_values = Vec::with_capacity(new_dim_sizes);
     // }
 
     // Higher order ops
     pub fn matmul(&self, right_array: &Array<T, N>) -> Self {
         self.clone()
     }
-}
-
-fn rolling_dimensions_lengths<const N: usize>(dimensions: &[usize; N]) -> [usize; N] {
-    let mut results = [1; N];
-    for idx in 1..N {
-        results[idx - 1] = dimensions[idx..].iter().fold(1, |res, &val| res * val);
-    }
-    results
 }
 
 // impl<T> ExecuteAST for Array<T>
@@ -299,7 +290,7 @@ mod tests {
             .count();
         assert_eq!(compared, target.len());
     }
-    
+
     #[test]
     fn test_rolling_dimensions_lengths() {
         let shape = [2, 2, 2];
@@ -446,6 +437,11 @@ mod tests {
         );
         let new_values = values.permute([2, 1, 0]);
         let target = vec![1.0, 5.0, 3.0, 7.0, 2.0, 6.0, 4.0, 8.0];
+        compare_slices(&target, &new_values.values.borrow());
+
+        let values = Array::<f32, 2>::new(vec![1.0, 2.0, 3.0, 4.0], Shape::new([2, 2]));
+        let new_values = values.permute([1, 0]);
+        let target = vec![1.0, 3.0, 2.0, 4.0];
         compare_slices(&target, &new_values.values.borrow());
 
         // let values =
