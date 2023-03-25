@@ -34,8 +34,21 @@ impl NewAxis {
 #[derive(Debug, Clone)]
 pub struct PadAxis<T> {
     pub prefix_count: usize,
+    pub prefix_slice: Vec<T>,
     pub suffix_count: usize,
+    pub suffix_slice: Vec<T>,
     pub pad_value: T,
+}
+impl<T: Clone + Copy> PadAxis<T> {
+    pub fn new(prefix_count: usize, suffix_count: usize, pad_value: T) -> Self {
+        PadAxis {
+            prefix_count: prefix_count,
+            prefix_slice: vec![pad_value; prefix_count],
+            suffix_count: suffix_count,
+            suffix_slice: vec![pad_value; suffix_count],
+            pad_value: pad_value,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -46,7 +59,10 @@ pub struct Shape<const N: usize> {
 impl<const N: usize> Shape<N> {
     pub fn new(dimensions: [usize; N]) -> Self {
         let strides = rolling_dimensions_lengths(&dimensions);
-        Shape { dimensions, strides }
+        Shape {
+            dimensions,
+            strides,
+        }
     }
 
     pub fn remove(&self, index: ReduceAxis) -> Shape<{ N - 1 }>
