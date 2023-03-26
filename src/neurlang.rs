@@ -60,24 +60,23 @@ impl<T: Clone + Copy, const N: usize> Padding<T, N> {
         }
     }
     
+    // TODO: Optimize this function further by collapsing dimensions that are not padded into the previous dimension, this enables larger chunks being transferred at once
     pub fn pad_array(&self, new_values: &mut Vec<T>, original_values: &[T], axis_index: usize) {
         let padded_stride = self.padded_strides[axis_index];
         let original_stride = self.original_strides[axis_index];
+        let n_prefix = padded_stride * self.axes_padding[axis_index].0;
+        let n_suffix = padded_stride * self.axes_padding[axis_index].1;
+        let pad_val = self.axes_padding[axis_index].2;
 
-        let prefix_padding = vec![self.axes_padding[axis_index].2; padded_stride * self.axes_padding[axis_index].0];
-        let suffix_padding = vec![self.axes_padding[axis_index].2; padded_stride * self.axes_padding[axis_index].1];
-
+        new_values.resize(new_values.len() + n_prefix, pad_val);
         if axis_index < N - 1 {
-            new_values.extend(prefix_padding);
             for original_values_chunk in original_values.chunks(original_stride) {
                 self.pad_array(new_values, original_values_chunk, axis_index + 1);
             }
-            new_values.extend(suffix_padding);
         } else {
-            new_values.extend(prefix_padding);
             new_values.extend_from_slice(&original_values);
-            new_values.extend(suffix_padding);
         };
+        new_values.resize(new_values.len() + n_suffix, pad_val);
     }
 }
 
