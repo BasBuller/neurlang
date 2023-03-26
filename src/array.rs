@@ -221,39 +221,38 @@ where
         Self::new(results, shape.clone())
     }
 
-    pub fn pad(&self, padding_size: &[PadAxis<T>]) -> Self {
-        let mut new_dim_sizes = [0; N];
-        for (idx, (&dim_size, padding)) in self
-            .shape
-            .borrow()
-            .dimensions
-            .iter()
-            .zip(padding_size.iter())
-            .enumerate()
-        {
-            new_dim_sizes[idx] = dim_size + padding.prefix_count + padding.suffix_count;
-        }
-        let new_nelem = count_elements(&new_dim_sizes);
-        let mut new_values = Vec::with_capacity(new_nelem);
+    // pub fn pad(&self, padding_size: &[PadAxis<T>]) -> Self {
+    //     let mut new_dim_sizes = [0; N];
+    //     for (idx, (&dim_size, padding)) in self
+    //         .shape
+    //         .borrow()
+    //         .dimensions
+    //         .iter()
+    //         .zip(padding_size.iter())
+    //         .enumerate()
+    //     {
+    //         new_dim_sizes[idx] = dim_size + padding.prefix_count + padding.suffix_count;
+    //     }
+    //     let new_nelem = count_elements(&new_dim_sizes);
+    //     let mut new_values = Vec::with_capacity(new_nelem);
 
-        let mut extended_strides: Vec<_> = self.shape.borrow().strides.into();
-        extended_strides.iter_mut().zip(padding_size[1..].iter()).for_each(|(stride, pad)| *stride = *stride + pad.prefix_count + pad.suffix_count);
-        let padding_size_orig_size = padding_size
-            .iter()
-            .zip(self.shape.borrow().dimensions.iter())
-            .zip(extended_strides)
-            .map(|((pad, &size), stride)| (pad, size, stride))
-            .collect::<Vec<_>>();
-        
-        let values_slice = &self.values.borrow();
-        internal_pad(
-            &mut new_values,
-            &padding_size_orig_size,
-            values_slice,
-        );
+    //     let mut extended_strides: Vec<_> = self.shape.borrow().strides.into();
+    //     extended_strides
+    //         .iter_mut()
+    //         .zip(padding_size[1..].iter())
+    //         .for_each(|(stride, pad)| *stride = *stride + pad.prefix_count + pad.suffix_count);
+    //     let padding_size_orig_size = padding_size
+    //         .iter()
+    //         .zip(self.shape.borrow().dimensions.iter())
+    //         .zip(extended_strides)
+    //         .map(|((pad, &size), stride)| (pad, size, stride))
+    //         .collect::<Vec<_>>();
 
-        Array::new(new_values, Shape::new(new_dim_sizes))
-    }
+    //     let values_slice = &self.values.borrow();
+    //     internal_pad(&mut new_values, &padding_size_orig_size, values_slice);
+
+    //     Array::new(new_values, Shape::new(new_dim_sizes))
+    // }
 
     // Higher order ops
     pub fn matmul(&self, right_array: &Array<T, N>) -> Self {
@@ -261,30 +260,36 @@ where
     }
 }
 
-/// Prefix each dimension with (dim_stride + dim_n-1_nprefix + dim_n-1_nsuffix) * dim_nprefix
-/// Suffix each dimension with (dim_stride + dim_n-1_nprefix + dim_n-1_nsuffix) * dim_nsuffix
-/// So, will require easy access to the stride of each dimensions /after padding/, and multiply that with the number of padded values
-fn internal_pad<'a, T: Clone + Copy>(
-    new_values: &'a mut Vec<T>,
-    padding_size_orig_size_padded_stride_size: &'a [(&PadAxis<T>, usize, usize)],
-    orig_values: &'a [T],
-) {
-    let (padding_axis, dim_len, padded_stride_size) = &padding_size_orig_size_padded_stride_size[0];
-    let prefix_padding = vec![padding_axis.pad_value; (*padded_stride_size) * padding_axis.prefix_count];
-    let suffix_padding = vec![padding_axis.pad_value; (*padded_stride_size) * padding_axis.suffix_count];
+// /// Prefix each dimension with (dim_stride + dim_n-1_nprefix + dim_n-1_nsuffix) * dim_nprefix
+// /// Suffix each dimension with (dim_stride + dim_n-1_nprefix + dim_n-1_nsuffix) * dim_nsuffix
+// /// So, will require easy access to the stride of each dimensions /after padding/, and multiply that with the number of padded values
+// fn internal_pad<'a, T: Clone + Copy>(
+//     new_values: &'a mut Vec<T>,
+//     padding_size_orig_size_padded_stride_size: &'a [(&PadAxis<T>, usize, usize)],
+//     orig_values: &'a [T],
+// ) {
+//     let (padding_axis, dim_len, padded_stride_size) = &padding_size_orig_size_padded_stride_size[0];
+//     let prefix_padding =
+//         vec![padding_axis.pad_value; (*padded_stride_size) * padding_axis.prefix_count];
+//     let suffix_padding =
+//         vec![padding_axis.pad_value; (*padded_stride_size) * padding_axis.suffix_count];
 
-    if padding_size_orig_size_padded_stride_size.len() > 1 {
-        new_values.extend(prefix_padding);
-        for orig_values_chunk in orig_values.chunks(*dim_len) {
-            internal_pad(new_values, &padding_size_orig_size_padded_stride_size[1..], orig_values_chunk);
-        }
-        new_values.extend(suffix_padding);
-    } else {
-        new_values.extend(prefix_padding);
-        new_values.extend_from_slice(&orig_values);
-        new_values.extend(suffix_padding);
-    };
-}
+//     if padding_size_orig_size_padded_stride_size.len() > 1 {
+//         new_values.extend(prefix_padding);
+//         for orig_values_chunk in orig_values.chunks(*dim_len) {
+//             internal_pad(
+//                 new_values,
+//                 &padding_size_orig_size_padded_stride_size[1..],
+//                 orig_values_chunk,
+//             );
+//         }
+//         new_values.extend(suffix_padding);
+//     } else {
+//         new_values.extend(prefix_padding);
+//         new_values.extend_from_slice(&orig_values);
+//         new_values.extend(suffix_padding);
+//     };
+// }
 
 // impl<T> ExecuteAST for Array<T>
 // where
@@ -497,13 +502,28 @@ mod tests {
         // let target = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
         // compare_slices(&target, &new_values.values.borrow());
     }
-    
-    #[test]
-    fn padding() {
-        let values = Array::<f32, 2>::new(vec![1.0, 2.0, 3.0, 4.0], Shape::new([2, 2]));
-        let padding = [PadAxis::new(1, 1, 0.0), PadAxis::new(1, 1, 0.0)];
-        let padded_values = values.pad(&padding);
-        let target = vec![0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 2.0, 0.0, 0.0, 3.0, 4.0, 0.0, 0.0, 0.0, 0.0, 0.0];
-        compare_slices(&padded_values.values.borrow(), &target);
-    }
+
+    // #[test]
+    // fn padding() {
+    //     let values = Array::<f32, 2>::new(vec![1.0, 2.0, 3.0, 4.0], Shape::new([2, 2]));
+    //     let padding = [PadAxis::new(1, 1, 0.0), PadAxis::new(1, 1, 0.0)];
+    //     let padded_values = values.pad(&padding);
+    //     let target = vec![
+    //         0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 2.0, 0.0, 0.0, 3.0, 4.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    //     ];
+    //     compare_slices(&padded_values.values.borrow(), &target);
+
+    //     let values = Array::<f32, 3>::new(vec![1.0], Shape::new([1, 1, 1]));
+    //     let padding = [
+    //         PadAxis::new(1, 1, 0.0),
+    //         PadAxis::new(1, 1, 0.0),
+    //         PadAxis::new(1, 1, 0.0),
+    //     ];
+    //     let padded_values = values.pad(&padding);
+    //     let target = vec![
+    //         0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
+    //         0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    //     ];
+    //     compare_slices(&padded_values.values.borrow(), &target);
+    // }
 }

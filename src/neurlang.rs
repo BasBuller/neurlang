@@ -31,22 +31,28 @@ impl NewAxis {
     }
 }
 
+/// Prefix padding count, Suffix padding count, Padding value
 #[derive(Debug, Clone)]
-pub struct PadAxis<T> {
-    pub prefix_count: usize,
-    pub prefix_slice: Vec<T>,
-    pub suffix_count: usize,
-    pub suffix_slice: Vec<T>,
-    pub pad_value: T,
+pub struct PadAxis<T>(usize, usize, T);
+pub struct Padding<T, const N: usize> {
+    pub axes_padding: [PadAxis<T>; N],
+    pub padded_strides: [usize; N],
 }
-impl<T: Clone + Copy> PadAxis<T> {
-    pub fn new(prefix_count: usize, suffix_count: usize, pad_value: T) -> Self {
-        PadAxis {
-            prefix_count: prefix_count,
-            prefix_slice: vec![pad_value; prefix_count],
-            suffix_count: suffix_count,
-            suffix_slice: vec![pad_value; suffix_count],
-            pad_value: pad_value,
+impl<T: Clone + Copy, const N: usize> Padding<T, N> {
+    pub fn new(axes_padding: [PadAxis<T>; N], shape: &Shape<N>) -> Self {
+        let mut padded_sizes = shape.dimensions.clone();
+        padded_sizes.iter_mut().zip(axes_padding.iter()).for_each(
+            |(size, PadAxis(prefix_count, suffix_count, _))| {
+                *size = *size + prefix_count + suffix_count
+            },
+        );
+        let mut padded_strides = [1; N];
+        for idx in 1..N {
+            padded_strides[idx - 1] = padded_sizes[idx..].iter().fold(1, |res, &val| res * val);
+        }
+        Padding {
+            axes_padding,
+            padded_strides,
         }
     }
 }
@@ -496,5 +502,25 @@ mod tests {
         let res = Shape::linear_index_to_array_index(7, &linear_axes_lengths);
         let target = [1, 1, 1];
         assert_eq!(res, target);
+    }
+
+    #[test]
+    fn shape_strides() {
+        let shape = Shape::new([2, 2, 2]);
+        let target_stride = [4, 2, 1];
+        assert_eq!(shape.strides, target_stride);
+    }
+
+    #[test]
+    fn padding_utilities() {
+        let padding_axes = [PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0)];
+        let shape = Shape::new([2, 2]);
+        let padding_helper = Padding::new(padding_axes, &shape);
+        assert_eq!(padding_helper.padded_strides, [4, 1]);
+
+        let padding_axes = [PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0)];
+        let shape = Shape::new([1, 1, 1]);
+        let padding_helper = Padding::new(padding_axes, &shape);
+        assert_eq!(padding_helper.padded_strides, [9, 3, 1]);
     }
 }
