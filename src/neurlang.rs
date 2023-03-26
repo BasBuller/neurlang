@@ -1,4 +1,4 @@
-use crate::utils::{product, rolling_dimensions_lengths};
+use crate::utils::calculate_strides;
 use std::rc::Rc;
 
 #[derive(Debug, Clone)]
@@ -90,7 +90,7 @@ pub struct Shape<const N: usize> {
 }
 impl<const N: usize> Shape<N> {
     pub fn new(dimensions: [usize; N]) -> Self {
-        let strides = rolling_dimensions_lengths(&dimensions);
+        let strides = calculate_strides(&dimensions);
         Shape {
             dimensions,
             strides,
@@ -131,7 +131,7 @@ impl<const N: usize> Shape<N> {
     }
 
     pub fn nelem(&self) -> usize {
-        product(&self.dimensions)
+        self.dimensions.iter().product()
     }
 
     pub fn make_ordered_index_array(
@@ -388,9 +388,9 @@ where
 
     pub fn reshape(self: Rc<Self>, new_shape: [usize; N]) -> Rc<ASTNode<T, N>> {
         assert!(
-            product(&new_shape) == self.shape.nelem(),
+            new_shape.iter().product::<usize>() == self.shape.nelem(),
             "Reshaped dimensions number elements ({}) does not match number elements of array ({})",
-            product(&new_shape),
+            new_shape.iter().product::<usize>(),
             self.shape.nelem(),
         );
 

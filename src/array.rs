@@ -1,6 +1,6 @@
 use crate::indexing::*;
 use crate::neurlang::{ExecuteAST, MemoryLayout, NewAxis, PadAxis, ReduceAxis, ReduceOp, Shape, Padding};
-use crate::utils::{product, rolling_dimensions_lengths};
+use crate::utils::calculate_strides;
 
 use num::Float;
 use rand::prelude::*;
@@ -134,9 +134,9 @@ where
     where
         F: Fn((&mut T, &T)),
     {
-        let n_prefix = product(&self.shape.borrow().dimensions[0..axis]);
-        let n_axis_suffix = product(&self.shape.borrow().dimensions[axis..]);
-        let n_suffix = product(&self.shape.borrow().dimensions[(axis + 1)..]);
+        let n_prefix = self.shape.borrow().dimensions[0..axis].iter().product();
+        let n_axis_suffix = self.shape.borrow().dimensions[axis..].iter().product::<usize>();
+        let n_suffix = self.shape.borrow().dimensions[axis + 1..].iter().product::<usize>();
         let array = self.values.borrow();
 
         let res_shape = self.shape.borrow().remove(axis);
@@ -201,9 +201,9 @@ where
 
     pub fn permute(&self, permutation: [usize; N]) -> Self {
         let shape = self.shape.borrow();
-        let ordered_dimensions_lengths = rolling_dimensions_lengths(&shape.dimensions);
+        let ordered_dimensions_lengths = calculate_strides(&shape.dimensions);
         let permuted_shape = Shape::permute_index_array(&shape.dimensions, &permutation);
-        let permuted_dimensions_lengths = rolling_dimensions_lengths(&permuted_shape);
+        let permuted_dimensions_lengths = calculate_strides(&permuted_shape);
 
         let cur_values = self.values.borrow();
         let mut results = vec![cur_values[0]; cur_values.len()];
@@ -223,7 +223,7 @@ where
 
     pub fn pad(&self, axes_padding: [PadAxis<T>; N]) -> Self {
         let padding_helper = Padding::new(axes_padding, &self.shape.borrow());
-        let new_nelem = product(&padding_helper.padded_sizes);
+        let new_nelem = padding_helper.padded_sizes.iter().product();
         let mut new_values = Vec::with_capacity(new_nelem);
         padding_helper.pad_array(&mut new_values, &self.values.borrow(), 0);
         Array::new(new_values, Shape::new(padding_helper.padded_sizes))
@@ -290,7 +290,7 @@ mod tests {
     #[test]
     fn test_rolling_dimensions_lengths() {
         let shape = [2, 2, 2];
-        let lengths = rolling_dimensions_lengths(&shape);
+        let lengths = calculate_strides(&shape);
         let target = [4, 2, 1];
         assert_eq!(target, lengths);
     }

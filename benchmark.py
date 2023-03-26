@@ -16,6 +16,15 @@ def numpy_function():
     return time_func
 
 
+def numpy_add():
+    values1 = np.random.randn(*SHAPE).flatten()
+    values2 = np.random.randn(*SHAPE).flatten()
+    def time_func():
+        res = values1 + values2
+        return res
+    return time_func
+
+
 def numpy_permute(contiguous):
     values = np.random.randn(*SHAPE)
     def time_func():
@@ -79,6 +88,7 @@ if __name__ == "__main__":
     N_ITER = 50
 
     time_results("Numpy", numpy_function())
+    time_results("Numpy add", numpy_add())
     time_results("Numpy permute non-contiguous", numpy_permute(False))
     time_results("Numpy permute contiguous", numpy_permute(True))
     time_results("Numpy pad non-contiguous", numpy_pad(False))

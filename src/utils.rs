@@ -15,10 +15,34 @@ pub fn outer_product<T: Copy + Sized>(major_vals: &Vec<Vec<T>>, minor_vals: &[T]
     res_values
 }
 
-pub fn rolling_dimensions_lengths<const N: usize>(dimensions: &[usize; N]) -> [usize; N] {
+pub fn calculate_strides<const N: usize>(dimensions: &[usize; N]) -> [usize; N] {
     let mut results = [1; N];
-    for idx in 1..N {
-        results[idx - 1] = dimensions[idx..].iter().fold(1, |res, &val| res * val);
+    for idx in (0..N - 1).rev() {
+        results[idx] = results[idx + 1] * dimensions[idx + 1];
     }
     results
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_product() {
+        assert_eq!(product(&[1, 2, 3, 4]), [1, 2, 3, 4].iter().product());
+    }
+
+    #[test]
+    fn test_outer_product() {
+        let major_vals = vec![vec![1, 2], vec![3, 4]];
+        let minor_vals = vec![5, 6];
+        let res_values = outer_product(&major_vals, &minor_vals);
+        assert_eq!(res_values, vec![vec![1, 2, 5], vec![1, 2, 6], vec![3, 4, 5], vec![3, 4, 6]]);
+    }
+
+    #[test]
+    fn test_calculate_strides() {
+        assert_eq!(calculate_strides(&[1, 2, 3, 4]), [24, 12, 4, 1]);
+    }
 }

@@ -1,5 +1,4 @@
 use crate::neurlang::{ArrayIndex, MemoryLayout, Shape};
-use crate::utils::product;
 use num::Float;
 
 // //////////////////
@@ -26,9 +25,10 @@ impl<'a, const N: usize> IntoIterator for Slice<'a, N> {
 
     fn into_iter(self) -> Self::IntoIter {
         let axis = self.axis;
-        let n_prefix = product(&self.shape.dimensions[0..axis]);
-        let n_axis_suffix = product(&self.shape.dimensions[axis..]);
-        let n_suffix = product(&self.shape.dimensions[(axis + 1)..]);
+        let n_prefix = self.shape.dimensions[0..axis].iter().product();
+        let n_axis_suffix = self.shape.dimensions[axis..].iter().product();
+        let n_suffix = self.shape.dimensions[(axis + 1)..].iter().product();
+
         SliceIterator {
             n_prefix: n_prefix,
             prefix_idx: 0,
