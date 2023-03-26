@@ -1,4 +1,5 @@
-pub fn count_elements(shape: &[usize]) -> usize {
+/// Product of a slice of usize, so fold with start value 1
+pub fn product(shape: &[usize]) -> usize {
     shape.iter().fold(1, |res, &val| res * val)
 }
 

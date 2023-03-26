@@ -1,4 +1,4 @@
-use crate::utils::{count_elements, rolling_dimensions_lengths};
+use crate::utils::{product, rolling_dimensions_lengths};
 use std::rc::Rc;
 
 #[derive(Debug, Clone)]
@@ -33,9 +33,10 @@ impl NewAxis {
 
 /// Prefix padding count, Suffix padding count, Padding value
 #[derive(Debug, Clone)]
-pub struct PadAxis<T>(usize, usize, T);
+pub struct PadAxis<T>(pub usize, pub usize, pub T);
 pub struct Padding<T, const N: usize> {
     pub axes_padding: [PadAxis<T>; N],
+    pub padded_sizes: [usize; N],
     pub padded_strides: [usize; N],
 }
 impl<T: Clone + Copy, const N: usize> Padding<T, N> {
@@ -52,6 +53,7 @@ impl<T: Clone + Copy, const N: usize> Padding<T, N> {
         }
         Padding {
             axes_padding,
+            padded_sizes,
             padded_strides,
         }
     }
@@ -105,7 +107,7 @@ impl<const N: usize> Shape<N> {
     }
 
     pub fn nelem(&self) -> usize {
-        count_elements(&self.dimensions)
+        product(&self.dimensions)
     }
 
     pub fn make_ordered_index_array(
@@ -362,9 +364,9 @@ where
 
     pub fn reshape(self: Rc<Self>, new_shape: [usize; N]) -> Rc<ASTNode<T, N>> {
         assert!(
-            count_elements(&new_shape) == self.shape.nelem(),
+            product(&new_shape) == self.shape.nelem(),
             "Reshaped dimensions number elements ({}) does not match number elements of array ({})",
-            count_elements(&new_shape),
+            product(&new_shape),
             self.shape.nelem(),
         );
 
