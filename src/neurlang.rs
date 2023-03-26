@@ -38,6 +38,7 @@ pub struct Padding<T, const N: usize> {
     pub axes_padding: [PadAxis<T>; N],
     pub padded_sizes: [usize; N],
     pub padded_strides: [usize; N],
+    pub original_strides: [usize; N],
 }
 impl<T: Clone + Copy, const N: usize> Padding<T, N> {
     pub fn new(axes_padding: [PadAxis<T>; N], shape: &Shape<N>) -> Self {
@@ -55,7 +56,28 @@ impl<T: Clone + Copy, const N: usize> Padding<T, N> {
             axes_padding,
             padded_sizes,
             padded_strides,
+            original_strides: shape.strides,
         }
+    }
+    
+    pub fn pad_array(&self, new_values: &mut Vec<T>, original_values: &[T], axis_index: usize) {
+        let padded_stride = self.padded_strides[axis_index];
+        let original_stride = self.original_strides[axis_index];
+
+        let prefix_padding = vec![self.axes_padding[axis_index].2; padded_stride * self.axes_padding[axis_index].0];
+        let suffix_padding = vec![self.axes_padding[axis_index].2; padded_stride * self.axes_padding[axis_index].1];
+
+        if axis_index < N - 1 {
+            new_values.extend(prefix_padding);
+            for original_values_chunk in original_values.chunks(original_stride) {
+                self.pad_array(new_values, original_values_chunk, axis_index + 1);
+            }
+            new_values.extend(suffix_padding);
+        } else {
+            new_values.extend(prefix_padding);
+            new_values.extend_from_slice(&original_values);
+            new_values.extend(suffix_padding);
+        };
     }
 }
 

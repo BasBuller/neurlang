@@ -225,8 +225,7 @@ where
         let padding_helper = Padding::new(axes_padding, &self.shape.borrow());
         let new_nelem = product(&padding_helper.padded_sizes);
         let mut new_values = Vec::with_capacity(new_nelem);
-        internal_pad(&mut new_values, &padding_helper.axes_padding, &padding_helper.padded_strides, &self.shape.borrow().strides, &self.values.borrow());
-
+        padding_helper.pad_array(&mut new_values, &self.values.borrow(), 0);
         Array::new(new_values, Shape::new(padding_helper.padded_sizes))
     }
 
@@ -234,36 +233,6 @@ where
     pub fn matmul(&self, right_array: &Array<T, N>) -> Self {
         self.clone()
     }
-}
-
-fn internal_pad<'a, T: Clone + Copy>(
-    new_values: &'a mut Vec<T>,
-    axes_padding: &'a [PadAxis<T>],
-    padded_stride: &'a [usize],
-    original_strides: &'a [usize],
-    orig_values: &'a [T],
-) {
-    let prefix_padding = vec![axes_padding[0].2; padded_stride[0] * axes_padding[0].0];
-    let suffix_padding = vec![axes_padding[0].2; padded_stride[0] * axes_padding[0].1];
-
-    if axes_padding.len() > 1 {
-        let dim_stride = original_strides[0];
-        new_values.extend(prefix_padding);
-        for orig_values_chunk in orig_values.chunks(dim_stride) {
-            internal_pad(
-                new_values,
-                &axes_padding[1..],
-                &padded_stride[1..],
-                &original_strides[1..],
-                orig_values_chunk,
-            );
-        }
-        new_values.extend(suffix_padding);
-    } else {
-        new_values.extend(prefix_padding);
-        new_values.extend_from_slice(&orig_values);
-        new_values.extend(suffix_padding);
-    };
 }
 
 // impl<T> ExecuteAST for Array<T>
