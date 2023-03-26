@@ -1,5 +1,5 @@
-use neurlang::array::*;
-use neurlang::neurlang::Shape;
+use neurlang::{array::*, neurlang::Padding};
+use neurlang::neurlang::{Shape, PadAxis};
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use num::Float;
@@ -50,26 +50,23 @@ where
 fn setup<const N: usize>(dimensions: [usize; N]) -> (Array<f32, N>, Vec<f32>) {
     let shape = Shape::new(dimensions);
     let array = rand_f32(shape.clone());
-    let vec = (0..N).map(|val| val as f32 / 100.0).collect::<Vec<_>>();
+    let vec = (0..shape.nelem()).map(|val| val as f32 / 100.0).collect::<Vec<_>>();
 
     (array, vec)
 }
 
 fn negate_benchmark(c: &mut Criterion) {
     let shape = [5000, 5000];
-    let nelem = shape.iter().fold(1, |res, &val| res * val);
     let (array, mut vec) = setup(shape);
 
     let mut group = c.benchmark_group("Negate new object");
     group.bench_function("Array", |b| b.iter(|| array.negate()));
     group.bench_function("Vector", |b| b.iter(|| negate(&vec)));
-    group.bench_function("Slice", |b| b.iter(|| negate(&vec[0..nelem])));
     group.finish();
 
     let mut group = c.benchmark_group("Negate in place");
     group.bench_function("Array", |b| b.iter(|| array.inpl_negate()));
     group.bench_function("Vector", |b| b.iter(|| inpl_negate(&mut vec)));
-    group.bench_function("Slice", |b| b.iter(|| inpl_negate(&mut vec[0..nelem])));
     group.finish();
 }
 
@@ -145,9 +142,13 @@ fn squeeze_unsqueeze_benchmark(c: &mut Criterion) {
 
 fn permute_benchmark(c: &mut Criterion) {
     let (array, _) = setup([5000, 5000]);
+    c.bench_function("Permute", |b| b.iter(|| array.permute([1, 0])));
+}
 
-    let mut group = c.benchmark_group("Permute");
-    group.bench_function("normal", |b| b.iter(|| array.permute([1, 0])));
+fn pad_benchmark(c: &mut Criterion) {
+    let (array, _) = setup([5000, 5000]);
+    let padding = [PadAxis(2, 2, 0.0), PadAxis(2, 2, 0.0)];
+    c.bench_function("Padding", |b| b.iter(|| array.pad(padding)));
 }
 
 fn python_compare(c: &mut Criterion) {
@@ -171,5 +172,6 @@ criterion_group!(
     squeeze_unsqueeze_benchmark,
     permute_benchmark,
     python_compare,
+    pad_benchmark,
 );
 criterion_main!(benches);

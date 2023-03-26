@@ -31,8 +31,11 @@ impl NewAxis {
     }
 }
 
-/// Prefix padding count, Suffix padding count, Padding value
-#[derive(Debug, Clone)]
+/// Contains:
+///     1. Prefix padding count
+///     2. Suffix padding count
+///     3. Padding value)
+#[derive(Debug, Clone, Copy)]
 pub struct PadAxis<T>(pub usize, pub usize, pub T);
 pub struct Padding<T, const N: usize> {
     pub axes_padding: [PadAxis<T>; N],

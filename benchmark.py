@@ -26,6 +26,16 @@ def numpy_permute(contiguous):
     return time_func
 
 
+def numpy_pad(contiguous):
+    values = np.random.randn(*SHAPE)
+    def time_func():
+        res = np.pad(values, [(2, 2), (2, 2)])
+        if contiguous:
+            res = np.ascontiguousarray(res)
+        return res
+    return time_func
+
+
 def torch_function(compile):
     values = torch.randn(*SHAPE)
     def time_func():
@@ -71,6 +81,8 @@ if __name__ == "__main__":
     time_results("Numpy", numpy_function())
     time_results("Numpy permute non-contiguous", numpy_permute(False))
     time_results("Numpy permute contiguous", numpy_permute(True))
+    time_results("Numpy pad non-contiguous", numpy_pad(False))
+    time_results("Numpy pad contiguous", numpy_pad(True))
     time_results("Torch slow", torch_function(False))
     time_results("Torch fast", torch_function(True))
     time_results("Torch permute non-contiguous - slow", torch_permute(False, False))

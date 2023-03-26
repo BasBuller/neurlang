@@ -28,6 +28,8 @@ When performing matrix multiplication you ideally want to iterate over the **row
             - However, seems more likely that an efficient index operator the allows for slices will work better. This way I can have an iterator type that goes through the backing memory just once, and hence does not need to allocate much intermediate memory.
         2. Collect the resulting slices into a new vector only once
 - [x] Move to const generics shape?
+- [x] Implement array padding
+    - [ ] Optimize the padding function by joining dimensions that are not padded into previous dimensions, that way increasing chunk size and reducing the number of memory operations
 - [ ] Make a different Shape type for the Graph tracing, and retain the current one for the Array
 - [ ] Greatly improve tensor indexing code quality
 - [ ] Make the array Shape describe how the memory representation is, whereas in my NeurlangAST keep track of what the desired shape is.
