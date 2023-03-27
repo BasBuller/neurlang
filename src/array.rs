@@ -1,6 +1,8 @@
 use crate::indexing::*;
-use crate::neurlang::{ExecuteAST, MemoryLayout, NewAxis, PadAxis, ReduceAxis, ReduceOp, Shape, Padding};
-use crate::utils::calculate_strides;
+use crate::neurlang::{
+    ExecuteAST, MemoryLayout, NewAxis, PadAxis, Padding, ReduceAxis, ReduceOp, Shape,
+};
+use crate::utils::{calculate_strides, permute};
 
 use num::Float;
 use rand::prelude::*;
@@ -26,7 +28,7 @@ pub fn rand_f32<const N: usize>(shape: Shape<N>) -> Array<f32, N> {
 
 impl<T, const N: usize> Array<T, N>
 where
-    T: Float + std::fmt::Debug,
+    T: Float + std::fmt::Debug + Default,
 {
     // Utils
     pub fn new(values: Vec<T>, shape: Shape<N>) -> Self {
@@ -135,8 +137,12 @@ where
         F: Fn((&mut T, &T)),
     {
         let n_prefix = self.shape.borrow().dimensions[0..axis].iter().product();
-        let n_axis_suffix = self.shape.borrow().dimensions[axis..].iter().product::<usize>();
-        let n_suffix = self.shape.borrow().dimensions[axis + 1..].iter().product::<usize>();
+        let n_axis_suffix = self.shape.borrow().dimensions[axis..]
+            .iter()
+            .product::<usize>();
+        let n_suffix = self.shape.borrow().dimensions[axis + 1..]
+            .iter()
+            .product::<usize>();
         let array = self.values.borrow();
 
         let res_shape = self.shape.borrow().remove(axis);
@@ -200,25 +206,19 @@ where
     }
 
     pub fn permute(&self, permutation: [usize; N]) -> Self {
-        let shape = self.shape.borrow();
-        let ordered_dimensions_lengths = calculate_strides(&shape.dimensions);
-        let permuted_shape = Shape::permute_index_array(&shape.dimensions, &permutation);
-        let permuted_dimensions_lengths = calculate_strides(&permuted_shape);
-
         let cur_values = self.values.borrow();
-        let mut results = vec![cur_values[0]; cur_values.len()];
+        let shape = self.shape.borrow();
+        let permuted_shape = shape.permute(&permutation);
+
+        let mut results = vec![Default::default(); cur_values.len()];
         for (idx, &value) in cur_values.iter().enumerate() {
-            let ordered_array_index =
-                Shape::linear_index_to_array_index(idx, &ordered_dimensions_lengths);
-            let permuted_array_index =
-                Shape::permute_index_array(&ordered_array_index, &permutation);
-            let permuted_linear_index = Shape::array_index_to_linear_index(
-                &permuted_array_index,
-                &permuted_dimensions_lengths,
-            );
+            let ordered_array_index = shape.linear_to_array_index(idx);
+            let permuted_array_index = permute(&ordered_array_index, &permutation);
+            let permuted_linear_index = permuted_shape.array_to_linear_index(&permuted_array_index);
             results[permuted_linear_index] = value;
         }
-        Self::new(results, shape.clone())
+
+        Self::new(results, permuted_shape)
     }
 
     pub fn pad(&self, axes_padding: [PadAxis<T>; N]) -> Self {
@@ -440,11 +440,11 @@ mod tests {
         let target = vec![1.0, 3.0, 2.0, 4.0];
         compare_slices(&target, &new_values.values.borrow());
 
-        // let values =
-        //     Array::<f32, 3>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], Shape::new([1, 2, 3]));
-        // let new_values = values.permute([1, 2, 0]);
-        // let target = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
-        // compare_slices(&target, &new_values.values.borrow());
+        let values =
+            Array::<f32, 3>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], Shape::new([1, 2, 3]));
+        let new_values = values.permute([1, 2, 0]);
+        let target = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        compare_slices(&target, &new_values.values.borrow());
     }
 
     #[test]
@@ -458,11 +458,7 @@ mod tests {
         compare_slices(&padded_values.values.borrow(), &target);
 
         let values = Array::<f32, 3>::new(vec![1.0], Shape::new([1, 1, 1]));
-        let padding = [
-            PadAxis(1, 1, 0.0),
-            PadAxis(1, 1, 0.0),
-            PadAxis(1, 1, 0.0),
-        ];
+        let padding = [PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0)];
         let padded_values = values.pad(padding);
         let target = vec![
             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0,

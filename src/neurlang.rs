@@ -62,7 +62,7 @@ impl<T: Clone + Copy, const N: usize> Padding<T, N> {
             original_strides: shape.strides,
         }
     }
-    
+
     // TODO: Optimize this function further by collapsing dimensions that are not padded into the previous dimension, this enables larger chunks being transferred at once
     pub fn pad_array(&self, new_values: &mut Vec<T>, original_values: &[T], axis_index: usize) {
         let padded_stride = self.padded_strides[axis_index];
@@ -118,7 +118,16 @@ impl<const N: usize> Shape<N> {
         Shape::new(new_dimensions)
     }
 
-    pub fn permute(&self, new_order: [usize; N]) -> Self {
+    pub fn permute_inplace(&mut self, new_order: &[usize; N]) {
+        let mut new_shape = [0; N];
+        let mut new_strides = [0; N];
+        for (new_idx, &old_idx) in new_order.iter().enumerate() {
+            new_shape[new_idx] = self.dimensions[old_idx];
+            new_strides[new_idx] = self.strides[old_idx];
+        }
+    }
+
+    pub fn permute(&self, new_order: &[usize; N]) -> Self {
         let mut new_shape = [0; N];
         for (permuted_idx, &original_idx) in new_order.iter().enumerate() {
             new_shape[permuted_idx] = self.dimensions[original_idx];
@@ -134,46 +143,21 @@ impl<const N: usize> Shape<N> {
         self.dimensions.iter().product()
     }
 
-    pub fn make_ordered_index_array(
-        permuted_index: &[usize; N],
-        permutation_order: &[usize; N],
-    ) -> [usize; N] {
-        let mut res = [0; N];
-        for (&idx, &value) in permutation_order.iter().zip(permuted_index.iter()) {
-            res[idx] = value;
-        }
-        return res;
+    pub fn array_to_linear_index(&self, array_index: &[usize]) -> usize {
+        self.strides
+            .iter()
+            .zip(array_index.iter())
+            .fold(0, |res, (&lval, &rval)| res + lval * rval)
     }
 
-    pub fn permute_index_array(
-        ordered_index: &[usize; N],
-        permutation_order: &[usize; N],
-    ) -> [usize; N] {
-        let mut res = [0; N];
-        for (&idx, &value) in permutation_order.iter().zip(ordered_index.iter()) {
-            res[idx] = value;
-        }
-        return res;
-    }
-
-    pub fn linear_index_to_array_index(
-        linear_index: usize,
-        linear_axes_sizes: &[usize; N],
-    ) -> [usize; N] {
+    pub fn linear_to_array_index(&self, linear_index: usize) -> [usize; N] {
         let mut results = [1; N];
         let mut counter = linear_index;
-        for (idx, &size) in linear_axes_sizes.iter().enumerate() {
+        for (idx, &size) in self.strides.iter().enumerate() {
             results[idx] = counter / size;
             counter = counter % size;
         }
         results
-    }
-
-    pub fn array_index_to_linear_index(array_index: &[usize; N], axes_sizes: &[usize; N]) -> usize {
-        array_index
-            .iter()
-            .zip(axes_sizes.iter())
-            .fold(0, |res, (&idx, &size)| res + (idx * size))
     }
 }
 
@@ -495,39 +479,62 @@ mod tests {
 
     #[test]
     fn linear_to_array_index() {
-        let linear_axes_lengths = [4, 2, 1];
+        let shape = Shape::new([2, 2, 2]);
 
-        let res = Shape::linear_index_to_array_index(0, &linear_axes_lengths);
+        let res = shape.linear_to_array_index(0);
         let target = [0, 0, 0];
         assert_eq!(res, target);
 
-        let res = Shape::linear_index_to_array_index(1, &linear_axes_lengths);
+        let res = shape.linear_to_array_index(1);
         let target = [0, 0, 1];
         assert_eq!(res, target);
 
-        let res = Shape::linear_index_to_array_index(2, &linear_axes_lengths);
+        let res = shape.linear_to_array_index(2);
         let target = [0, 1, 0];
         assert_eq!(res, target);
 
-        let res = Shape::linear_index_to_array_index(3, &linear_axes_lengths);
+        let res = shape.linear_to_array_index(3);
         let target = [0, 1, 1];
         assert_eq!(res, target);
 
-        let res = Shape::linear_index_to_array_index(4, &linear_axes_lengths);
+        let res = shape.linear_to_array_index(4);
         let target = [1, 0, 0];
         assert_eq!(res, target);
 
-        let res = Shape::linear_index_to_array_index(5, &linear_axes_lengths);
+        let res = shape.linear_to_array_index(5);
         let target = [1, 0, 1];
         assert_eq!(res, target);
 
-        let res = Shape::linear_index_to_array_index(6, &linear_axes_lengths);
+        let res = shape.linear_to_array_index(6);
         let target = [1, 1, 0];
         assert_eq!(res, target);
 
-        let res = Shape::linear_index_to_array_index(7, &linear_axes_lengths);
+        let res = shape.linear_to_array_index(7);
         let target = [1, 1, 1];
         assert_eq!(res, target);
+    }
+
+    #[test]
+    fn array_to_linear_index() {
+        let shape = Shape::new([1, 2, 3]);
+
+        let res = shape.array_to_linear_index(&[0, 0, 0]);
+        assert_eq!(res, 0);
+
+        let res = shape.array_to_linear_index(&[0, 0, 1]);
+        assert_eq!(res, 1);
+
+        let res = shape.array_to_linear_index(&[0, 0, 2]);
+        assert_eq!(res, 2);
+
+        let res = shape.array_to_linear_index(&[0, 1, 0]);
+        assert_eq!(res, 3);
+
+        let res = shape.array_to_linear_index(&[0, 1, 1]);
+        assert_eq!(res, 4);
+
+        let res = shape.array_to_linear_index(&[0, 1, 2]);
+        assert_eq!(res, 5);
     }
 
     #[test]

@@ -1,5 +1,5 @@
+use neurlang::neurlang::{PadAxis, Shape};
 use neurlang::{array::*, neurlang::Padding};
-use neurlang::neurlang::{Shape, PadAxis};
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use num::Float;
@@ -50,7 +50,9 @@ where
 fn setup<const N: usize>(dimensions: [usize; N]) -> (Array<f32, N>, Vec<f32>) {
     let shape = Shape::new(dimensions);
     let array = rand_f32(shape.clone());
-    let vec = (0..shape.nelem()).map(|val| val as f32 / 100.0).collect::<Vec<_>>();
+    let vec = (0..shape.nelem())
+        .map(|val| val as f32 / 100.0)
+        .collect::<Vec<_>>();
 
     (array, vec)
 }

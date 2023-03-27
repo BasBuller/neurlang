@@ -23,6 +23,16 @@ pub fn calculate_strides<const N: usize>(dimensions: &[usize; N]) -> [usize; N] 
     results
 }
 
+pub fn permute<T: Default + Copy, const N: usize>(
+    values: &[T; N],
+    permutation: &[usize; N],
+) -> [T; N] {
+    let mut res = [Default::default(); N];
+    for (new_idx, &orig_idx) in permutation.iter().enumerate() {
+        res[new_idx] = values[orig_idx];
+    }
+    return res;
+}
 
 #[cfg(test)]
 mod tests {
@@ -38,11 +48,23 @@ mod tests {
         let major_vals = vec![vec![1, 2], vec![3, 4]];
         let minor_vals = vec![5, 6];
         let res_values = outer_product(&major_vals, &minor_vals);
-        assert_eq!(res_values, vec![vec![1, 2, 5], vec![1, 2, 6], vec![3, 4, 5], vec![3, 4, 6]]);
+        assert_eq!(
+            res_values,
+            vec![vec![1, 2, 5], vec![1, 2, 6], vec![3, 4, 5], vec![3, 4, 6]]
+        );
     }
 
     #[test]
     fn test_calculate_strides() {
         assert_eq!(calculate_strides(&[1, 2, 3, 4]), [24, 12, 4, 1]);
+    }
+
+    #[test]
+    fn test_permute() {
+        let values = [1, 2, 3, 4];
+        let permutation = [1, 0, 3, 2];
+        let target = [2, 1, 4, 3];
+        let permuted = permute(&values, &permutation);
+        assert_eq!(target, permuted);
     }
 }
