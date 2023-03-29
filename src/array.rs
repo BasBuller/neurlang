@@ -194,17 +194,6 @@ where
         Array::<T, M>::reference_values(self.values.clone(), new_shape)
     }
 
-    fn collect_slice_iterator(&self, axis: usize, index: usize) -> Vec<T> {
-        let array = self.values.borrow();
-        let slice_iter = make_slice(&self.shape.borrow(), axis, index).into_iter();
-        let mut res_values = Vec::with_capacity(slice_iter.n_prefix * slice_iter.n_suffix);
-        for (start_idx, end_idx) in slice_iter {
-            res_values.extend_from_slice(&array[start_idx..end_idx]);
-        }
-
-        res_values
-    }
-
     pub fn permute(&self, permutation: [usize; N]) -> Self {
         let cur_values = self.values.borrow();
         let shape = self.shape.borrow();
