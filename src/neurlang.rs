@@ -1,18 +1,11 @@
 use std::rc::Rc;
 use crate::array::PadAxis;
+use crate::utils::calculate_strides;
 
 #[derive(Debug, Clone)]
 pub enum MemoryLayout {
     ColumnMajor,
     RowMajor,
-}
-
-fn calculate_strides(dimensions: &[usize]) -> Vec<usize> {
-    let mut results = vec![1; dimensions.len()];
-    for idx in (0..dimensions.len() - 1).rev() {
-        results[idx] = results[idx + 1] * dimensions[idx + 1];
-    }
-    results
 }
 
 #[derive(Debug, Clone)]

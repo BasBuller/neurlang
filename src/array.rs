@@ -24,11 +24,11 @@ impl NewAxis {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct ArrayIndex<const N: usize> {
-    pub index: [usize; N],
+pub struct ArrayIndex {
+    pub index: Vec<usize>,
 }
-impl<const N: usize> ArrayIndex<N> {
-    pub fn new(index: [usize; N]) -> Self {
+impl ArrayIndex {
+    pub fn new(index: Vec<usize>) -> Self {
         ArrayIndex { index }
     }
 }
@@ -39,29 +39,29 @@ impl<const N: usize> ArrayIndex<N> {
 ///     3. Padding value)
 #[derive(Debug, Clone, Copy)]
 pub struct PadAxis<T>(pub usize, pub usize, pub T);
-pub struct Padding<T, const N: usize> {
-    pub axes_padding: [PadAxis<T>; N],
-    pub padded_sizes: [usize; N],
-    pub padded_strides: [usize; N],
-    pub original_strides: [usize; N],
+pub struct Padding<T> {
+    pub axes_padding: Vec<PadAxis<T>>,
+    pub padded_sizes: Vec<usize>,
+    pub padded_strides: Vec<usize>,
+    pub original_strides: Vec<usize>,
 }
-impl<T: Clone + Copy, const N: usize> Padding<T, N> {
-    pub fn new(axes_padding: [PadAxis<T>; N], shape: &Shape<N>) -> Self {
+impl<T: Clone + Copy> Padding<T> {
+    pub fn new(axes_padding: Vec<PadAxis<T>>, shape: &Shape) -> Self {
         let mut padded_sizes = shape.dimensions.clone();
         padded_sizes.iter_mut().zip(axes_padding.iter()).for_each(
             |(size, PadAxis(prefix_count, suffix_count, _))| {
                 *size = *size + prefix_count + suffix_count
             },
         );
-        let mut padded_strides = [1; N];
-        for idx in 1..N {
+        let mut padded_strides = vec![1; shape.len()];
+        for idx in 1..shape.len() {
             padded_strides[idx - 1] = padded_sizes[idx..].iter().fold(1, |res, &val| res * val);
         }
         Padding {
             axes_padding,
             padded_sizes,
             padded_strides,
-            original_strides: shape.strides,
+            original_strides: shape.strides.clone(),
         }
     }
 
@@ -74,7 +74,7 @@ impl<T: Clone + Copy, const N: usize> Padding<T, N> {
         let pad_val = self.axes_padding[axis_index].2;
 
         new_values.resize(new_values.len() + n_prefix, pad_val);
-        if axis_index < N - 1 {
+        if axis_index < self.axes_padding.len() - 1 {
             for original_values_chunk in original_values.chunks(original_stride) {
                 self.pad_array(new_values, original_values_chunk, axis_index + 1);
             }
@@ -86,12 +86,12 @@ impl<T: Clone + Copy, const N: usize> Padding<T, N> {
 }
 
 #[derive(Debug, Clone)]
-pub struct Shape<const N: usize> {
-    pub dimensions: [usize; N],
-    pub strides: [usize; N],
+pub struct Shape {
+    pub dimensions: Vec<usize>,
+    pub strides: Vec<usize>,
 }
-impl<const N: usize> Shape<N> {
-    pub fn new(dimensions: [usize; N]) -> Self {
+impl Shape {
+    pub fn new(dimensions: Vec<usize>) -> Self {
         let strides = calculate_strides(&dimensions);
         Shape {
             dimensions,
@@ -99,46 +99,28 @@ impl<const N: usize> Shape<N> {
         }
     }
 
-    pub fn remove(&self, index: ReduceAxis) -> Shape<{ N - 1 }>
-    where
-        [usize; N - 1]: Sized,
-    {
-        let mut new_dimensions = [0; { N - 1 }];
-        new_dimensions[0..index].copy_from_slice(&self.dimensions[0..index]);
-        new_dimensions[index..].copy_from_slice(&self.dimensions[(index + 1)..]);
+    pub fn remove(&self, index: ReduceAxis) -> Shape {
+        let mut new_dimensions = Vec::with_capacity(self.dimensions.len() - 1);
+        new_dimensions.extend_from_slice(&self.dimensions[0..index]);
+        new_dimensions.extend_from_slice(&self.dimensions[(index + 1)..]);
         Shape::new(new_dimensions)
     }
 
-    pub fn insert(&self, new_axis: NewAxis) -> Shape<{ N + 1 }>
-    where
-        [usize; N + 1]: Sized,
-    {
-        let mut new_dimensions = [0; { N + 1 }];
-        new_dimensions[0..new_axis.index].copy_from_slice(&self.dimensions[0..new_axis.index]);
-        new_dimensions[new_axis.index] = new_axis.axis_size;
-        new_dimensions[(new_axis.index + 1)..].copy_from_slice(&self.dimensions[new_axis.index..]);
+    pub fn insert(&self, new_axis: NewAxis) -> Shape {
+        let mut new_dimensions = Vec::with_capacity(self.dimensions.len() + 1);
+        new_dimensions.extend_from_slice(&self.dimensions[0..new_axis.index]);
+        new_dimensions.push(new_axis.axis_size);
+        new_dimensions.extend_from_slice(&self.dimensions[new_axis.index..]);
         Shape::new(new_dimensions)
     }
 
-    pub fn permute_inplace(&mut self, new_order: &[usize; N]) {
-        let mut new_shape = [0; N];
-        let mut new_strides = [0; N];
-        for (new_idx, &old_idx) in new_order.iter().enumerate() {
-            new_shape[new_idx] = self.dimensions[old_idx];
-            new_strides[new_idx] = self.strides[old_idx];
-        }
-    }
-
-    pub fn permute(&self, new_order: &[usize; N]) -> Self {
-        let mut new_shape = [0; N];
-        for (permuted_idx, &original_idx) in new_order.iter().enumerate() {
-            new_shape[permuted_idx] = self.dimensions[original_idx];
-        }
-        Self::new(new_shape)
+    pub fn permute(&self, new_order: &[usize]) -> Self {
+        let new_dimensions = permute(&self.dimensions, new_order);
+        Self::new(new_dimensions)
     }
 
     pub fn len(&self) -> usize {
-        N
+        self.dimensions.len()
     }
 
     pub fn nelem(&self) -> usize {
@@ -152,11 +134,11 @@ impl<const N: usize> Shape<N> {
             .fold(0, |res, (&lval, &rval)| res + lval * rval)
     }
 
-    pub fn linear_to_array_index(&self, linear_index: usize) -> [usize; N] {
-        let mut results = [1; N];
+    pub fn linear_to_array_index(&self, linear_index: usize) -> Vec<usize> {
+        let mut results = Vec::with_capacity(self.dimensions.len());
         let mut counter = linear_index;
-        for (idx, &size) in self.strides.iter().enumerate() {
-            results[idx] = counter / size;
+        for &size in self.strides.iter() {
+            results.push(counter / size);
             counter = counter % size;
         }
         results
@@ -164,35 +146,35 @@ impl<const N: usize> Shape<N> {
 }
 
 #[derive(Debug, Clone)]
-pub struct Array<T, const N: usize>
+pub struct Array<T>
 where
     T: Float,
 {
     pub values: Rc<RefCell<Vec<T>>>,
-    pub shape: RefCell<Shape<N>>,
+    pub shape: RefCell<Shape>,
     pub layout: MemoryLayout,
 }
 
-pub fn rand_f32<const N: usize>(shape: Shape<N>) -> Array<f32, N> {
+pub fn rand_f32(shape: Shape) -> Array<f32> {
     let mut rng = rand::thread_rng();
     let total_elems = shape.nelem();
     let values = (0..total_elems).map(|_| rng.gen()).collect::<Vec<_>>();
     Array::new(values, shape)
 }
 
-impl<T, const N: usize> Array<T, N>
+impl<T> Array<T>
 where
     T: Float + std::fmt::Debug + Default,
 {
     // Utils
-    pub fn new(values: Vec<T>, shape: Shape<N>) -> Self {
+    pub fn new(values: Vec<T>, shape: Shape) -> Self {
         Array {
             values: Rc::new(RefCell::new(values)),
             shape: RefCell::new(shape),
             layout: MemoryLayout::RowMajor,
         }
     }
-    pub fn reference_values(values: Rc<RefCell<Vec<T>>>, shape: Shape<N>) -> Self {
+    pub fn reference_values(values: Rc<RefCell<Vec<T>>>, shape: Shape) -> Self {
         Array {
             values: values,
             shape: RefCell::new(shape),
@@ -292,13 +274,13 @@ where
         res_values
     }
 
-    pub fn slice(&self, axis: usize, index: usize) -> Array<T, { N - 1 }> {
+    pub fn slice(&self, axis: usize, index: usize) -> Array<T> {
         let res_shape = self.shape.borrow().remove(axis);
         let res_values = self.slice_vector(axis, index);
         Array::new(res_values, res_shape)
     }
 
-    pub fn reduce<F>(&self, axis: usize, reduce_f: F) -> Array<T, { N - 1 }>
+    pub fn reduce<F>(&self, axis: usize, reduce_f: F) -> Array<T>
     where
         F: Fn((&mut T, &T)),
     {
@@ -333,10 +315,10 @@ where
         Array::new(res_values, res_shape)
     }
 
-    pub fn reduce_sum(&self, axis: usize) -> Array<T, { N - 1 }> {
+    pub fn reduce_sum(&self, axis: usize) -> Array<T> {
         self.reduce(axis, |(res_val, src_val)| *res_val = *res_val + *src_val)
     }
-    pub fn reduce_max(&self, axis: usize) -> Array<T, { N - 1 }> {
+    pub fn reduce_max(&self, axis: usize) -> Array<T> {
         self.reduce(axis, |(res_val, src_val)| {
             *res_val = if *res_val > *src_val {
                 *res_val
@@ -347,20 +329,20 @@ where
     }
 
     // Movement ops
-    pub fn unsqueeze(&self, axis: usize) -> Array<T, { N + 1 }> {
+    pub fn unsqueeze(&self, axis: usize) -> Array<T> {
         let new_shape = self.shape.borrow().insert(NewAxis::new(axis, 1));
         Array::reference_values(self.values.clone(), new_shape)
     }
-    pub fn squeeze(&self, axis: usize) -> Array<T, { N - 1 }> {
+    pub fn squeeze(&self, axis: usize) -> Array<T> {
         let new_shape = self.shape.borrow().remove(axis);
         Array::reference_values(self.values.clone(), new_shape)
     }
 
-    pub fn reshape<const M: usize>(&self, new_shape: Shape<M>) -> Array<T, M> {
-        Array::<T, M>::reference_values(self.values.clone(), new_shape)
+    pub fn reshape(&self, new_shape: Shape) -> Array<T> {
+        Array::<T>::reference_values(self.values.clone(), new_shape)
     }
 
-    pub fn permute(&self, permutation: [usize; N]) -> Self {
+    pub fn permute(&self, permutation: &[usize]) -> Self {
         let cur_values = self.values.borrow();
         let shape = self.shape.borrow();
         let permuted_shape = shape.permute(&permutation);
@@ -376,7 +358,7 @@ where
         Self::new(results, permuted_shape)
     }
 
-    pub fn pad(&self, axes_padding: [PadAxis<T>; N]) -> Self {
+    pub fn pad(&self, axes_padding: Vec<PadAxis<T>>) -> Self {
         let padding_helper = Padding::new(axes_padding, &self.shape.borrow());
         let new_nelem = padding_helper.padded_sizes.iter().product();
         let mut new_values = Vec::with_capacity(new_nelem);
@@ -405,7 +387,7 @@ where
     // }
 
     // Higher order ops
-    pub fn matmul(&self, right_array: &Array<T, N>) -> Self {
+    pub fn matmul(&self, right_array: &Array<T>) -> Self {
         self.clone()
     }
 }
@@ -474,47 +456,38 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::calculate_strides;
-
-    fn compare_slices<T: PartialEq>(target: &[T], values: &[T]) {
-        let compared = target
-            .iter()
-            .zip(values.iter())
-            .filter(|(targ, val)| targ.eq(val))
-            .count();
-        assert_eq!(compared, target.len());
-    }
+    use crate::utils::{calculate_strides, compare_slices};
 
     #[test]
     fn test_rolling_dimensions_lengths() {
         let shape = [2, 2, 2];
         let lengths = calculate_strides(&shape);
         let target = [4, 2, 1];
-        assert_eq!(target, lengths);
+        compare_slices(&target, &lengths);
     }
 
     #[test]
     fn negate() {
         let target: Vec<f32> = vec![-1.0, -2.0, -3.0];
-        let shape = Shape::new([3]);
-        let arr1 = Array::<f32, 1>::new(vec![1.0, 2.0, 3.0], shape).negate();
+        let shape = Shape::new(vec![3]);
+        let arr1 = Array::<f32>::new(vec![1.0, 2.0, 3.0], shape).negate();
         compare_slices(&target, &arr1.values.borrow());
     }
 
     #[test]
     fn add() {
         let target: Vec<f32> = vec![5.0, 7.0, 9.0];
-        let shape = Shape::new([3]);
-        let arr1 = Array::<f32, 1>::new(vec![1.0, 2.0, 3.0], shape.clone());
-        let arr2 = Array::<f32, 1>::new(vec![4.0, 5.0, 6.0], shape);
+        let shape = Shape::new(vec![3]);
+        let arr1 = Array::<f32>::new(vec![1.0, 2.0, 3.0], shape.clone());
+        let arr2 = Array::<f32>::new(vec![4.0, 5.0, 6.0], shape);
         let arr3 = arr1.add(&arr2);
         compare_slices(&target, &arr3.values.borrow());
     }
 
     #[test]
     fn slice() {
-        let shape = Shape::new([2, 2, 2]);
-        let arr = Array::<f32, 3>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], shape);
+        let shape = Shape::new(vec![2, 2, 2]);
+        let arr = Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], shape);
 
         let arr0 = arr.slice(0, 0);
         let target0: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0];
@@ -531,8 +504,8 @@ mod tests {
 
     #[test]
     fn reduce_sum() {
-        let shape = Shape::new([2, 2, 2]);
-        let arr = Array::<f32, 3>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], shape);
+        let shape = Shape::new(vec![2, 2, 2]);
+        let arr = Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], shape);
 
         let arr0 = arr.reduce_sum(0);
         let target0: Vec<f32> = vec![6.0, 8.0, 10.0, 12.0];
@@ -549,8 +522,8 @@ mod tests {
 
     #[test]
     fn reduce_max() {
-        let shape = Shape::new([2, 2, 2]);
-        let arr = Array::<f32, 3>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], shape);
+        let shape = Shape::new(vec![2, 2, 2]);
+        let arr = Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], shape);
 
         let arr0 = arr.reduce_max(0);
         let target0: Vec<f32> = vec![5.0, 6.0, 7.0, 8.0];
@@ -567,12 +540,12 @@ mod tests {
 
     #[test]
     fn unsqueeze() {
-        let arr = Array::<f32, 1>::new(vec![2.0; 6], Shape::new([6]));
+        let arr = Array::<f32>::new(vec![2.0; 6], Shape::new(vec![6]));
         let arr = arr.unsqueeze(0);
         let target = [1, 6];
         compare_slices(&target, &arr.shape.borrow().dimensions);
 
-        let arr = Array::<f32, 1>::new(vec![2.0; 6], Shape::new([6]));
+        let arr = Array::<f32>::new(vec![2.0; 6], Shape::new(vec![6]));
         let arr = arr.unsqueeze(1);
         let target = vec![6, 1];
         compare_slices(&target, &arr.shape.borrow().dimensions);
@@ -580,12 +553,12 @@ mod tests {
 
     #[test]
     fn squeeze() {
-        let arr = Array::<f32, 2>::new(vec![2.0; 6], Shape::new([1, 6]));
+        let arr = Array::<f32>::new(vec![2.0; 6], Shape::new(vec![1, 6]));
         let arr = arr.squeeze(0);
         let target = vec![6];
         compare_slices(&target, &arr.shape.borrow().dimensions);
 
-        let arr = Array::<f32, 2>::new(vec![2.0; 6], Shape::new([6, 1]));
+        let arr = Array::<f32>::new(vec![2.0; 6], Shape::new(vec![6, 1]));
         let arr = arr.squeeze(1);
         let target = vec![6];
         compare_slices(&target, &arr.shape.borrow().dimensions);
@@ -593,16 +566,16 @@ mod tests {
 
     #[test]
     fn reshape() {
-        let arr = Array::<f32, 3>::new(vec![2.0; 24], Shape::new([2, 3, 4]));
-        let arr = arr.reshape(Shape::new([2, 3, 2, 2]));
+        let arr = Array::<f32>::new(vec![2.0; 24], Shape::new(vec![2, 3, 4]));
+        let arr = arr.reshape(Shape::new(vec![2, 3, 2, 2]));
         let target = vec![2, 3, 2, 2];
         compare_slices(&target, &arr.shape.borrow().dimensions);
     }
 
     #[test]
     fn matmul() {
-        let l_arr = Array::<f32, 2>::new(vec![2.0; 6], Shape::new([2, 3]));
-        let r_arr = Array::<f32, 2>::new(vec![3.0; 12], Shape::new([3, 4]));
+        let l_arr = Array::<f32>::new(vec![2.0; 6], Shape::new(vec![2, 3]));
+        let r_arr = Array::<f32>::new(vec![3.0; 12], Shape::new(vec![3, 4]));
         let res = l_arr.matmul(&r_arr);
         let target_values = vec![18.0; 8];
         compare_slices(&target_values, &res.values.borrow());
@@ -612,51 +585,51 @@ mod tests {
 
     #[test]
     fn permute() {
-        let values = Array::<f32, 2>::new(vec![1.0, 2.0, 3.0, 4.0], Shape::new([2, 2]));
-        let new_values = values.permute([1, 0]);
+        let values = Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0], Shape::new(vec![2, 2]));
+        let new_values = values.permute(&[1, 0]);
         let target = vec![1.0, 3.0, 2.0, 4.0];
         compare_slices(&target, &new_values.values.borrow());
 
-        let values = Array::<f32, 3>::new(
+        let values = Array::<f32>::new(
             vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
-            Shape::new([2, 2, 2]),
+            Shape::new(vec![2, 2, 2]),
         );
-        let new_values = values.permute([1, 0, 2]);
+        let new_values = values.permute(&[1, 0, 2]);
         let target = vec![1.0, 2.0, 5.0, 6.0, 3.0, 4.0, 7.0, 8.0];
         compare_slices(&target, &new_values.values.borrow());
 
-        let values = Array::<f32, 3>::new(
+        let values = Array::<f32>::new(
             vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
-            Shape::new([2, 2, 2]),
+            Shape::new(vec![2, 2, 2]),
         );
-        let new_values = values.permute([2, 1, 0]);
+        let new_values = values.permute(&[2, 1, 0]);
         let target = vec![1.0, 5.0, 3.0, 7.0, 2.0, 6.0, 4.0, 8.0];
         compare_slices(&target, &new_values.values.borrow());
 
-        let values = Array::<f32, 2>::new(vec![1.0, 2.0, 3.0, 4.0], Shape::new([2, 2]));
-        let new_values = values.permute([1, 0]);
+        let values = Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0], Shape::new(vec![2, 2]));
+        let new_values = values.permute(&[1, 0]);
         let target = vec![1.0, 3.0, 2.0, 4.0];
         compare_slices(&target, &new_values.values.borrow());
 
         let values =
-            Array::<f32, 3>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], Shape::new([1, 2, 3]));
-        let new_values = values.permute([1, 2, 0]);
+            Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], Shape::new(vec![1, 2, 3]));
+        let new_values = values.permute(&[1, 2, 0]);
         let target = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
         compare_slices(&target, &new_values.values.borrow());
     }
 
     #[test]
     fn padding() {
-        let values = Array::<f32, 2>::new(vec![1.0, 2.0, 3.0, 4.0], Shape::new([2, 2]));
-        let padding = [PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0)];
+        let values = Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0], Shape::new(vec![2, 2]));
+        let padding = vec![PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0)];
         let padded_values = values.pad(padding);
         let target = vec![
             0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 2.0, 0.0, 0.0, 3.0, 4.0, 0.0, 0.0, 0.0, 0.0, 0.0,
         ];
         compare_slices(&padded_values.values.borrow(), &target);
 
-        let values = Array::<f32, 3>::new(vec![1.0], Shape::new([1, 1, 1]));
-        let padding = [PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0)];
+        let values = Array::<f32>::new(vec![1.0], Shape::new(vec![1, 1, 1]));
+        let padding = vec![PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0)];
         let padded_values = values.pad(padding);
         let target = vec![
             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
@@ -667,27 +640,27 @@ mod tests {
 
     #[test]
     fn shape_strides() {
-        let shape = Shape::new([2, 2, 2]);
+        let shape = Shape::new(vec![2, 2, 2]);
         let target_stride = [4, 2, 1];
         assert_eq!(shape.strides, target_stride);
     }
 
     #[test]
     fn padding_utilities() {
-        let padding_axes = [PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0)];
-        let shape = Shape::new([2, 2]);
+        let padding_axes = vec![PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0)];
+        let shape = Shape::new(vec![2, 2]);
         let padding_helper = Padding::new(padding_axes, &shape);
         assert_eq!(padding_helper.padded_strides, [4, 1]);
 
-        let padding_axes = [PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0)];
-        let shape = Shape::new([1, 1, 1]);
+        let padding_axes = vec![PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0)];
+        let shape = Shape::new(vec![1, 1, 1]);
         let padding_helper = Padding::new(padding_axes, &shape);
         assert_eq!(padding_helper.padded_strides, [9, 3, 1]);
     }
 
     #[test]
     fn linear_to_array_index() {
-        let shape = Shape::new([2, 2, 2]);
+        let shape = Shape::new(vec![2, 2, 2]);
 
         let res = shape.linear_to_array_index(0);
         let target = [0, 0, 0];
@@ -724,7 +697,7 @@ mod tests {
 
     #[test]
     fn array_to_linear_index() {
-        let shape = Shape::new([1, 2, 3]);
+        let shape = Shape::new(vec![1, 2, 3]);
 
         let res = shape.array_to_linear_index(&[0, 0, 0]);
         assert_eq!(res, 0);

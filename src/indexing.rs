@@ -1,7 +1,7 @@
 use crate::neurlang::MemoryLayout;
 use crate::array::{ArrayIndex, Shape};
 
-pub fn make_slice<const N: usize>(shape: &Shape<N>, axis: usize, index: usize) -> Slice<N> {
+pub fn make_slice(shape: &Shape, axis: usize, index: usize) -> Slice {
     Slice { shape, axis, index }
 }
 
@@ -9,8 +9,8 @@ pub fn make_slice<const N: usize>(shape: &Shape<N>, axis: usize, index: usize) -
 // Slicing
 // //////////////////
 #[derive(Debug, Clone, Copy)]
-pub struct Slice<'a, const N: usize> {
-    shape: &'a Shape<N>,
+pub struct Slice<'a> {
+    shape: &'a Shape,
     axis: usize,
     index: usize,
 }
@@ -23,7 +23,7 @@ pub struct SliceIterator {
     prefix_idx: usize,
 }
 
-impl<'a, const N: usize> IntoIterator for Slice<'a, N> {
+impl<'a> IntoIterator for Slice<'a> {
     type Item = (usize, usize);
     type IntoIter = SliceIterator;
 
@@ -61,29 +61,30 @@ impl Iterator for SliceIterator {
 // /////////////////////////
 // Iterate over tensor indices
 // /////////////////////////
-pub struct TensorIterator<const N: usize> {
-    shape: Shape<N>,
+pub struct TensorIterator {
+    shape: Shape,
     memory_layout: MemoryLayout,
-    return_index: [usize; N],
+    return_index: Vec<usize>,
     count: usize,
     max_count: usize,
 }
 
-impl<const N: usize> TensorIterator<N> {
-    pub fn new(shape: Shape<N>, memory_layout: MemoryLayout) -> TensorIterator<N> {
+impl TensorIterator {
+    pub fn new(shape: Shape, memory_layout: MemoryLayout) -> TensorIterator {
         let nelem = shape.nelem();
+        let ndim = shape.len();
         TensorIterator {
             shape: shape,
             memory_layout: memory_layout,
-            return_index: [0; N],
+            return_index: vec![0; ndim],
             count: 0,
             max_count: nelem,
         }
     }
 }
 
-impl<const N: usize> Iterator for TensorIterator<N> {
-    type Item = ArrayIndex<N>;
+impl Iterator for TensorIterator {
+    type Item = ArrayIndex;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.count < self.max_count - 1 {
@@ -102,7 +103,7 @@ impl<const N: usize> Iterator for TensorIterator<N> {
                     }
                 }
                 MemoryLayout::RowMajor => {
-                    let mut idx = N - 1;
+                    let mut idx = self.shape.len() - 1;
                     if self.return_index[idx] < self.shape.dimensions[idx] {
                         self.return_index[idx] += 1;
                     }
@@ -141,7 +142,7 @@ pub struct PermutedTensorIterator<const N: usize> {
 }
 
 impl<const N: usize> PermutedTensorIterator<N> {
-    pub fn new(shape: Shape<N>, permutation: [usize; N]) -> Self {
+    pub fn new(shape: Shape, permutation: [usize; N]) -> Self {
         let mut block_size = 1;
         let mut n_ordered_trailing_axes = 0;
         for (dim1, &dim2) in (0..N).rev().zip(permutation.iter().rev()) {
@@ -239,37 +240,37 @@ mod tests {
 
     #[test]
     fn slicing_iterator() {
-        let shape = Shape::new([2, 2, 2]);
+        let shape = Shape::new(vec![2, 2, 2]);
         let slice = make_slice(&shape, 0, 0);
         let target_indices = vec![(0, 4)];
         let slice_indices = slice.into_iter().collect::<Vec<_>>();
         assert_eq!(target_indices, slice_indices);
 
-        let shape = Shape::new([2, 2, 2]);
+        let shape = Shape::new(vec![2, 2, 2]);
         let slice = make_slice(&shape, 0, 1);
         let target_indices = vec![(4, 8)];
         let slice_indices = slice.into_iter().collect::<Vec<_>>();
         assert_eq!(target_indices, slice_indices);
 
-        let shape = Shape::new([2, 2, 2]);
+        let shape = Shape::new(vec![2, 2, 2]);
         let slice = make_slice(&shape, 1, 0);
         let target_indices = vec![(0, 2), (4, 6)];
         let slice_indices = slice.into_iter().collect::<Vec<_>>();
         assert_eq!(target_indices, slice_indices);
 
-        let shape = Shape::new([2, 2, 2]);
+        let shape = Shape::new(vec![2, 2, 2]);
         let slice = make_slice(&shape, 1, 1);
         let target_indices = vec![(2, 4), (6, 8)];
         let slice_indices = slice.into_iter().collect::<Vec<_>>();
         assert_eq!(target_indices, slice_indices);
 
-        let shape = Shape::new([2, 2, 2]);
+        let shape = Shape::new(vec![2, 2, 2]);
         let slice = make_slice(&shape, 2, 0);
         let target_indices = vec![(0, 1), (2, 3), (4, 5), (6, 7)];
         let slice_indices = slice.into_iter().collect::<Vec<_>>();
         assert_eq!(target_indices, slice_indices);
 
-        let shape = Shape::new([2, 2, 2]);
+        let shape = Shape::new(vec![2, 2, 2]);
         let slice = make_slice(&shape, 2, 1);
         let target_indices = vec![(1, 2), (3, 4), (5, 6), (7, 8)];
         let slice_indices = slice.into_iter().collect::<Vec<_>>();
@@ -278,48 +279,48 @@ mod tests {
 
     #[test]
     fn indexing_iterator() {
-        let shape = Shape::new([2, 2, 2]);
+        let shape = Shape::new(vec![2, 2, 2]);
         let layout = MemoryLayout::RowMajor;
-        let tensor_iter: TensorIterator<3> = TensorIterator::new(shape, layout);
+        let tensor_iter: TensorIterator = TensorIterator::new(shape, layout);
         let indices = tensor_iter.into_iter().collect::<Vec<_>>();
         let target_indices = vec![
-            [0, 0, 0],
-            [0, 0, 1],
-            [0, 1, 0],
-            [0, 1, 1],
-            [1, 0, 0],
-            [1, 0, 1],
-            [1, 1, 0],
-            [1, 1, 1],
+           vec![1, 0, 0],
+           vec![0, 0, 1],
+           vec![0, 1, 0],
+           vec![0, 1, 1],
+           vec![1, 0, 0],
+           vec![1, 0, 1],
+           vec![1, 1, 0],
+           vec![1, 1, 1],
         ]
         .iter()
-        .map(|&vals| ArrayIndex::new(vals))
+        .map(|vals| ArrayIndex::new(vals.clone()))
         .collect::<Vec<_>>();
         assert_eq!(indices, target_indices);
 
-        let shape = Shape::new([2, 2, 2]);
+        let shape = Shape::new(vec![2, 2, 2]);
         let layout = MemoryLayout::ColumnMajor;
-        let tensor_iter: TensorIterator<3> = TensorIterator::new(shape, layout);
+        let tensor_iter: TensorIterator = TensorIterator::new(shape, layout);
         let indices = tensor_iter.into_iter().collect::<Vec<_>>();
         let target_indices = vec![
-            [0, 0, 0],
-            [1, 0, 0],
-            [0, 1, 0],
-            [1, 1, 0],
-            [0, 0, 1],
-            [1, 0, 1],
-            [0, 1, 1],
-            [1, 1, 1],
+            vec![0, 0, 0],
+            vec![1, 0, 0],
+            vec![0, 1, 0],
+            vec![1, 1, 0],
+            vec![0, 0, 1],
+            vec![1, 0, 1],
+            vec![0, 1, 1],
+            vec![1, 1, 1],
         ]
         .iter()
-        .map(|&vals| ArrayIndex::new(vals))
+        .map(|vals| ArrayIndex::new(vals.clone()))
         .collect::<Vec<_>>();
         assert_eq!(indices, target_indices);
     }
 
     #[test]
     fn permuted_tensor_iterator() {
-        let shape = Shape::new([2, 2, 2]);
+        let shape = Shape::new(vec![2, 2, 2]);
         let permutation = [0, 1, 2];
         let preds = PermutedTensorIterator::new(shape, permutation)
             .into_iter()
@@ -327,7 +328,7 @@ mod tests {
         let results = vec![(0, 8)];
         assert_eq!(preds, results);
 
-        let shape = Shape::new([2, 2, 2]);
+        let shape = Shape::new(vec![2, 2, 2]);
         let permutation = [1, 0, 2];
         let preds = PermutedTensorIterator::new(shape, permutation)
             .into_iter()
@@ -335,7 +336,7 @@ mod tests {
         let results = vec![(0, 2), (4, 6), (2, 4), (6, 8)];
         assert_eq!(preds, results);
 
-        let shape = Shape::new([2, 2, 2]);
+        let shape = Shape::new(vec![2, 2, 2]);
         let permutation = [1, 2, 0];
         let preds = PermutedTensorIterator::new(shape, permutation)
             .into_iter()
@@ -352,7 +353,7 @@ mod tests {
         ];
         assert_eq!(preds, results);
 
-        let shape = Shape::new([2, 2, 2]);
+        let shape = Shape::new(vec![2, 2, 2]);
         let permutation = [2, 1, 0];
         let preds = PermutedTensorIterator::new(shape, permutation)
             .into_iter()
