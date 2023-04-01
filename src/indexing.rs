@@ -1,5 +1,4 @@
-use crate::neurlang::MemoryLayout;
-use crate::array::{ArrayIndex, Shape};
+use crate::array::Shape;
 
 // //////////////////
 // Slicing

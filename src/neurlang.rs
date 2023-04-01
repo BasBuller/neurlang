@@ -1,6 +1,5 @@
+use crate::array::{NewAxis, PadAxis, Shape};
 use std::rc::Rc;
-use crate::array::PadAxis;
-use crate::utils::calculate_strides;
 
 #[derive(Debug, Clone)]
 pub enum MemoryLayout {
@@ -8,50 +7,7 @@ pub enum MemoryLayout {
     RowMajor,
 }
 
-#[derive(Debug, Clone)]
-pub struct TrackingShape {
-    pub dimensions: Vec<usize>,
-    pub strides: Vec<usize>,
-}
-impl TrackingShape {
-    pub fn new(dimensions: Vec<usize>) -> Self {
-        let strides = calculate_strides(&dimensions);
-        Self {
-            dimensions,
-            strides,
-        }
-    }
-
-    pub fn init(dimensions: Vec<usize>, strides: Vec<usize>) -> Self {
-        Self {
-            dimensions,
-            strides,
-        }
-    }
-    
-    pub fn len(&self) -> usize {
-        self.dimensions.len()
-    }
-    
-    pub fn nelem(&self) -> usize {
-        self.dimensions.iter().product()
-    }
-    
-    pub fn remove(&self, index: usize) -> Self {
-        let mut new_dimensions = self.dimensions.clone();
-        new_dimensions.remove(index);
-        Self::new(new_dimensions)
-    }
-    
-    pub fn insert(&self, index: usize, size: usize) -> Self {
-        let mut new_dimensions = self.dimensions.clone();
-        new_dimensions.insert(index, size);
-        Self::new(new_dimensions)
-    }
-}
-
 pub type ReduceAxis = usize;
-
 #[derive(Debug, Clone, Copy)]
 pub enum ReduceOp {
     Sum,
@@ -124,7 +80,7 @@ pub enum ASTOp<F, T: ExecuteAST<F>> {
     },
     Reshape {
         value: Rc<ASTNode<F, T>>,
-        new_shape: TrackingShape,
+        new_shape: Shape,
     },
     Permute {
         value: Rc<ASTNode<F, T>>,
@@ -144,7 +100,7 @@ pub enum ASTOp<F, T: ExecuteAST<F>> {
 #[derive(Debug)]
 pub struct ASTNode<F, T: ExecuteAST<F>> {
     op: ASTOp<F, T>,
-    shape: TrackingShape,
+    shape: Shape,
 }
 
 impl<F, T: ExecuteAST<F>> ASTNode<F, T> {
@@ -226,7 +182,7 @@ impl<F, T: ExecuteAST<F>> ASTNode<F, T> {
             "Expanded dimension larger than existing shape",
         );
 
-        let new_shape = self.shape.insert(dim, 1);
+        let new_shape = self.shape.insert(NewAxis::new(dim, 1));
         Rc::new(ASTNode {
             op: ASTOp::Unsqueeze {
                 value: self,
@@ -264,7 +220,7 @@ impl<F, T: ExecuteAST<F>> ASTNode<F, T> {
             self.shape.nelem(),
         );
 
-        let new_shape = TrackingShape::new(new_shape);
+        let new_shape = Shape::new(new_shape);
         Rc::new(ASTNode {
             op: ASTOp::Reshape {
                 value: self,
@@ -275,7 +231,7 @@ impl<F, T: ExecuteAST<F>> ASTNode<F, T> {
     }
 
     // Utils
-    pub fn new(value: T, shape: TrackingShape) -> Rc<ASTNode<F, T>> {
+    pub fn new(value: T, shape: Shape) -> Rc<ASTNode<F, T>> {
         Rc::new(ASTNode {
             op: ASTOp::Value { value },
             shape: shape,
@@ -322,7 +278,10 @@ impl<F, T: ExecuteAST<F>> ASTNode<F, T> {
             ASTOp::Squeeze { value, dim } => value.execute().squeeze_v(*dim),
             ASTOp::Reshape { value, new_shape } => value.execute().reshape_v(new_shape.clone()),
             ASTOp::Permute { value, dim_order } => value.execute().permute_v(dim_order),
-            ASTOp::Pad { value, axes_padding } => value.execute().pad_v(axes_padding),
+            ASTOp::Pad {
+                value,
+                axes_padding,
+            } => value.execute().pad_v(axes_padding),
         }
     }
 }
@@ -351,9 +310,9 @@ pub trait ExecuteAST<F> {
     // // Movement ops
     fn unsqueeze_v(&self, dim: usize) -> Self;
     fn squeeze_v(&self, dim: usize) -> Self;
-    fn reshape_v(&self, new_shape: TrackingShape) -> Self;
+    fn reshape_v(&self, new_shape: Shape) -> Self;
     fn permute_v(&self, axis_ordering: &[usize]) -> Self;
-    fn pad_v(&self, axes_padding: &[PadAxis<F>])-> Self;
+    fn pad_v(&self, axes_padding: &Vec<PadAxis<F>>) -> Self;
     // fn stride_v(&self, ...) -> Self;
 
     // // Maybe want to include this? Does make for a way nicer experience

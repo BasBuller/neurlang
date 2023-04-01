@@ -1,8 +1,6 @@
 use crate::indexing::*;
-use crate::neurlang::{
-    ExecuteAST, MemoryLayout, ReduceAxis, ReduceOp,
-};
-use crate::utils::{permute, calculate_strides};
+use crate::neurlang::{ExecuteAST, MemoryLayout, ReduceAxis, ReduceOp};
+use crate::utils::{calculate_strides, permute};
 
 use num::Float;
 use rand::prelude::*;
@@ -253,7 +251,10 @@ where
         self.binary_op(right_array, |(&lval, &rval)| lval.powf(rval))
     }
     pub fn compare_equal(&self, right_array: &Self) -> Self {
-        self.binary_op(right_array, |(&lval, &rval)| if lval == rval { T::one() } else { T::zero() })
+        self.binary_op(
+            right_array,
+            |(&lval, &rval)| if lval == rval { T::one() } else { T::zero() },
+        )
     }
     pub fn max(&self, right_array: &Self) -> Self {
         self.binary_op(
@@ -365,7 +366,7 @@ where
         padding_helper.pad_array(&mut new_values, &self.values.borrow(), 0);
         Array::new(new_values, Shape::new(padding_helper.padded_sizes))
     }
-    
+
     // pub fn stride(&self, strides: [usize; N]) -> Self {
     //     let mut new_dimensions = self.shape.borrow().dimensions.clone();
     //     for (n_dim, &stride_mul) in new_dimensions.iter_mut().zip(strides.iter()) {
@@ -381,8 +382,8 @@ where
     //     for linear_idx in 0..new_n_elem {
     //         let array_index
     //     }
-    //     // let new_values = 
-        
+    //     // let new_values =
+
     //     Array::new(self.values.borrow().clone(), Shape::new(new_dimensions))
     // }
 
@@ -392,66 +393,72 @@ where
     }
 }
 
-// impl<T> ExecuteAST<T> for Array<T>
-// where
-//     T: Float + std::fmt::Debug + Default,
-// {
-//     // Leaf
-//     fn value_v(&self) -> Self {
-//         self.clone()
-//     }
+impl<T> ExecuteAST<T> for Array<T>
+where
+    T: Float + std::fmt::Debug + Default,
+{
+    // Leaf
+    fn value_v(&self) -> Self {
+        self.clone()
+    }
 
-//     // Unary
-//     fn negate_v(&self) -> Self {
-//         self.negate()
-//     }
-//     fn exp_v(&self) -> Self {
-//         self.exp()
-//     }
-//     fn log_v(&self) -> Self {
-//         self.ln()
-//     }
-    
-//     // Binary
-//     fn add_v(&self, right_value: &Self) -> Self {
-//         self.add(right_value)
-//     }
-//     fn sub_v(&self, right_value: &Self) -> Self {
-//         self.sub(right_value) 
-//     }
-//     fn mul_v(&self, right_value: &Self) -> Self {
-//         self.multiply(right_value)
-//     }
-//     fn div_v(&self, right_value: &Self) -> Self {
-//         self.divide(right_value)
-//     }
-//     fn pow_v(&self, right_value: &Self) -> Self {
-//         self.pow(right_value)
-//     }
-//     fn compare_equal_v(&self, right_value: &Self) -> Self {
-//         self.compare_equal(right_value)
-//     }
-//     fn max_v(&self, right_value: &Self) -> Self {
-//         self.max(right_value)
-//     }
-    
-//     // Reduce
-//     fn reduce_v(&self, axis: ReduceAxis, op: ReduceOp) -> Self {
-//         match op {
-//             ReduceOp::Sum => self.reduce_sum(axis),
-//             ReduceOp::Max => self.reduce_max(axis),
-//         }
-//     }
-//     fn unsqueeze_v(&self, dim: usize) -> Self {
-//         self.unsqueeze(dim)
-//     }
-//     fn squeeze_v(&self, dim: usize) -> Self {
-//         self.squeeze(dim)
-//     }
-//     fn reshape_v(&self, new_shape: Shape<N>) -> Self {
-//         self.reshape(new_shape)
-//     }
-// }
+    // Unary
+    fn negate_v(&self) -> Self {
+        self.negate()
+    }
+    fn exp_v(&self) -> Self {
+        self.exp()
+    }
+    fn log_v(&self) -> Self {
+        self.ln()
+    }
+
+    // Binary
+    fn add_v(&self, right_value: &Self) -> Self {
+        self.add(right_value)
+    }
+    fn sub_v(&self, right_value: &Self) -> Self {
+        self.sub(right_value)
+    }
+    fn mul_v(&self, right_value: &Self) -> Self {
+        self.multiply(right_value)
+    }
+    fn div_v(&self, right_value: &Self) -> Self {
+        self.divide(right_value)
+    }
+    fn pow_v(&self, right_value: &Self) -> Self {
+        self.pow(right_value)
+    }
+    fn compare_equal_v(&self, right_value: &Self) -> Self {
+        self.compare_equal(right_value)
+    }
+    fn max_v(&self, right_value: &Self) -> Self {
+        self.max(right_value)
+    }
+
+    // Reduce
+    fn reduce_v(&self, axis: ReduceAxis, op: ReduceOp) -> Self {
+        match op {
+            ReduceOp::Sum => self.reduce_sum(axis),
+            ReduceOp::Max => self.reduce_max(axis),
+        }
+    }
+    fn unsqueeze_v(&self, dim: usize) -> Self {
+        self.unsqueeze(dim)
+    }
+    fn squeeze_v(&self, dim: usize) -> Self {
+        self.squeeze(dim)
+    }
+    fn reshape_v(&self, new_shape: Shape) -> Self {
+        self.reshape(new_shape)
+    }
+    fn permute_v(&self, axis_ordering: &[usize]) -> Self {
+        self.permute(axis_ordering)
+    }
+    fn pad_v(&self, axes_padding: &Vec<PadAxis<T>>) -> Self {
+        self.pad(axes_padding.clone())
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -611,8 +618,10 @@ mod tests {
         let target = vec![1.0, 3.0, 2.0, 4.0];
         compare_slices(&target, &new_values.values.borrow());
 
-        let values =
-            Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], Shape::new(vec![1, 2, 3]));
+        let values = Array::<f32>::new(
+            vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            Shape::new(vec![1, 2, 3]),
+        );
         let new_values = values.permute(&[1, 2, 0]);
         let target = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
         compare_slices(&target, &new_values.values.borrow());
