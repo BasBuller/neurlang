@@ -437,12 +437,14 @@ where
     }
 
     // Reduce
-    fn reduce_v(&self, axis: ReduceAxis, op: ReduceOp) -> Self {
-        match op {
-            ReduceOp::Sum => self.reduce_sum(axis),
-            ReduceOp::Max => self.reduce_max(axis),
-        }
+    fn reduce_max_v(&self, axis: ReduceAxis) -> Self {
+        self.reduce_max(axis)
     }
+    fn reduce_sum_v(&self, axis: ReduceAxis) -> Self {
+        self.reduce_sum(axis)
+    }
+    
+    // Movement
     fn unsqueeze_v(&self, dim: usize) -> Self {
         self.unsqueeze(dim)
     }

@@ -7,69 +7,52 @@ pub enum MemoryLayout {
     RowMajor,
 }
 
-pub type ReduceAxis = usize;
 #[derive(Debug, Clone, Copy)]
 pub enum ReduceOp {
     Sum,
     Max,
 }
+pub type ReduceAxis = usize;
+
+#[derive(Debug, Clone, Copy)]
+pub enum UnaryOp {
+    Negate,
+    Exponential,
+    Log,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum BinaryOp {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Pow,
+    CompareEqual,
+    Max,
+}
 
 #[derive(Debug)]
 pub enum ASTOp<F, T: ExecuteAST<F>> {
-    // Leaf
     Value {
         value: T,
     },
-
-    // Unary
-    Negate {
+    Unary {
         value: Rc<ASTNode<F, T>>,
+        op: UnaryOp,
     },
-    Exponential {
-        value: Rc<ASTNode<F, T>>,
-    },
-    Log {
-        value: Rc<ASTNode<F, T>>,
-    },
-
-    // Binary
-    Add {
+    Binary {
         left_value: Rc<ASTNode<F, T>>,
         right_value: Rc<ASTNode<F, T>>,
+        op: BinaryOp,
     },
-    Sub {
-        left_value: Rc<ASTNode<F, T>>,
-        right_value: Rc<ASTNode<F, T>>,
-    },
-    Mul {
-        left_value: Rc<ASTNode<F, T>>,
-        right_value: Rc<ASTNode<F, T>>,
-    },
-    Div {
-        left_value: Rc<ASTNode<F, T>>,
-        right_value: Rc<ASTNode<F, T>>,
-    },
-    Pow {
-        left_value: Rc<ASTNode<F, T>>,
-        right_value: Rc<ASTNode<F, T>>,
-    },
-    CompareEqual {
-        left_value: Rc<ASTNode<F, T>>,
-        right_value: Rc<ASTNode<F, T>>,
-    },
-    Max {
-        left_value: Rc<ASTNode<F, T>>,
-        right_value: Rc<ASTNode<F, T>>,
-    },
-
-    // Reduce
     Reduce {
         value: Rc<ASTNode<F, T>>,
         dim: ReduceAxis,
         op: ReduceOp,
     },
 
-    // Movement ops
+    // Movement ops, these are separate from the rest because they do not have consistent inputs
     Unsqueeze {
         value: Rc<ASTNode<F, T>>,
         dim: usize,
@@ -105,30 +88,19 @@ pub struct ASTNode<F, T: ExecuteAST<F>> {
 
 impl<F, T: ExecuteAST<F>> ASTNode<F, T> {
     // Unary
-    pub fn negate(self: Rc<Self>) -> Rc<ASTNode<F, T>> {
+    pub fn unary(self: Rc<Self>, op: UnaryOp) -> Rc<ASTNode<F, T>> {
         let new_shape = self.shape.clone();
         Rc::new(ASTNode {
-            op: ASTOp::Negate { value: self },
-            shape: new_shape,
-        })
-    }
-    pub fn exp(self: Rc<Self>) -> Rc<ASTNode<F, T>> {
-        let new_shape = self.shape.clone();
-        Rc::new(ASTNode {
-            op: ASTOp::Exponential { value: self },
-            shape: new_shape,
-        })
-    }
-    pub fn log(self: Rc<Self>) -> Rc<ASTNode<F, T>> {
-        let new_shape = self.shape.clone();
-        Rc::new(ASTNode {
-            op: ASTOp::Log { value: self },
+            op: ASTOp::Unary {
+                value: self,
+                op: op,
+            },
             shape: new_shape,
         })
     }
 
     // Binary
-    pub fn add(self: Rc<Self>, right_value: Rc<ASTNode<F, T>>) -> Rc<ASTNode<F, T>> {
+    pub fn binary(self: Rc<Self>, right_value: Rc<ASTNode<F, T>>, op: BinaryOp) -> Rc<ASTNode<F, T>> {
         assert!(
             self.shape.dimensions == right_value.shape.dimensions,
             "Left tensor (shape: {:?}) and right tensor (shape: {:?}) not of equal shape",
@@ -138,19 +110,10 @@ impl<F, T: ExecuteAST<F>> ASTNode<F, T> {
 
         let new_shape = self.shape.clone();
         Rc::new(ASTNode {
-            op: ASTOp::Add {
+            op: ASTOp::Binary {
                 left_value: self,
                 right_value: right_value,
-            },
-            shape: new_shape,
-        })
-    }
-    pub fn subtract(self: Rc<Self>, right_value: Rc<ASTNode<F, T>>) -> Rc<ASTNode<F, T>> {
-        let new_shape = self.shape.clone();
-        Rc::new(ASTNode {
-            op: ASTOp::Add {
-                left_value: self,
-                right_value: right_value.negate(),
+                op: op,
             },
             shape: new_shape,
         })
@@ -176,6 +139,7 @@ impl<F, T: ExecuteAST<F>> ASTNode<F, T> {
         })
     }
 
+    // Movement ops
     pub fn unsqueeze(self: Rc<Self>, dim: usize) -> Rc<ASTNode<F, T>> {
         assert!(
             dim <= self.shape.dimensions.len(),
@@ -240,40 +204,34 @@ impl<F, T: ExecuteAST<F>> ASTNode<F, T> {
     pub fn execute(&self) -> T {
         match &self.op {
             ASTOp::Value { value } => value.value_v(),
-            ASTOp::Negate { value } => value.execute().negate_v(),
-            ASTOp::Exponential { value } => value.execute().exp_v(),
-            ASTOp::Log { value } => value.execute().log_v(),
-
-            ASTOp::Add {
-                left_value,
-                right_value,
-            } => left_value.execute().add_v(&right_value.execute()),
-            ASTOp::Sub {
-                left_value,
-                right_value,
-            } => left_value.execute().sub_v(&right_value.execute()),
-            ASTOp::Mul {
-                left_value,
-                right_value,
-            } => left_value.execute().mul_v(&right_value.execute()),
-            ASTOp::Div {
-                left_value,
-                right_value,
-            } => left_value.execute().div_v(&right_value.execute()),
-            ASTOp::Pow {
-                left_value,
-                right_value,
-            } => left_value.execute().pow_v(&right_value.execute()),
-            ASTOp::CompareEqual {
-                left_value,
-                right_value,
-            } => left_value.execute().compare_equal_v(&right_value.execute()),
-            ASTOp::Max {
-                left_value,
-                right_value,
-            } => left_value.execute().max_v(&right_value.execute()),
-
-            ASTOp::Reduce { value, dim, op } => value.execute().reduce_v(*dim, *op),
+            ASTOp::Unary { value, op } => {
+                let value = value.execute();
+                match op {
+                    UnaryOp::Negate => value.negate_v(),
+                    UnaryOp::Exponential => value.exp_v(),
+                    UnaryOp::Log => value.log_v(),
+                }
+            },
+            ASTOp::Binary { left_value, right_value, op } => {
+                let left_value = left_value.execute();
+                let right_value = right_value.execute();
+                match op {
+                    BinaryOp::Add => left_value.add_v(&right_value),
+                    BinaryOp::Sub => left_value.sub_v(&right_value),
+                    BinaryOp::Mul => left_value.mul_v(&right_value),
+                    BinaryOp::Div => left_value.div_v(&right_value),
+                    BinaryOp::Pow => left_value.pow_v(&right_value),
+                    BinaryOp::CompareEqual => left_value.compare_equal_v(&right_value),
+                    BinaryOp::Max => left_value.max_v(&right_value),
+                }
+            },
+            ASTOp::Reduce { value, dim, op } => {
+                let value = value.execute();
+                match op {
+                    ReduceOp::Sum => value.reduce_sum_v(*dim),
+                    ReduceOp::Max => value.reduce_max_v(*dim),
+                }
+            },
             ASTOp::Unsqueeze { value, dim } => value.execute().unsqueeze_v(*dim),
             ASTOp::Squeeze { value, dim } => value.execute().squeeze_v(*dim),
             ASTOp::Reshape { value, new_shape } => value.execute().reshape_v(new_shape.clone()),
@@ -305,7 +263,8 @@ pub trait ExecuteAST<F> {
     fn max_v(&self, right_value: &Self) -> Self;
 
     // Reduce
-    fn reduce_v(&self, axis: ReduceAxis, op: ReduceOp) -> Self;
+    fn reduce_max_v(&self, axis: ReduceAxis) -> Self;
+    fn reduce_sum_v(&self, axis: ReduceAxis) -> Self;
 
     // // Movement ops
     fn unsqueeze_v(&self, dim: usize) -> Self;
