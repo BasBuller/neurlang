@@ -1,5 +1,4 @@
-use neurlang::neurlang::{PadAxis, Shape};
-use neurlang::{array::*, neurlang::Padding};
+use neurlang::array::*;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use num::Float;

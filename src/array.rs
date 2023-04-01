@@ -1,13 +1,167 @@
 use crate::indexing::*;
 use crate::neurlang::{
-    ExecuteAST, MemoryLayout, NewAxis, PadAxis, Padding, ReduceAxis, ReduceOp, Shape,
+    ExecuteAST, MemoryLayout, ReduceAxis, ReduceOp,
 };
-use crate::utils::permute;
+use crate::utils::{permute, calculate_strides};
 
 use num::Float;
 use rand::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;
+
+#[derive(Debug, Clone)]
+pub struct NewAxis {
+    index: usize,
+    axis_size: usize,
+}
+impl NewAxis {
+    pub fn new(index: usize, axis_size: usize) -> Self {
+        NewAxis {
+            index: index,
+            axis_size: axis_size,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct ArrayIndex<const N: usize> {
+    pub index: [usize; N],
+}
+impl<const N: usize> ArrayIndex<N> {
+    pub fn new(index: [usize; N]) -> Self {
+        ArrayIndex { index }
+    }
+}
+
+/// Contains:
+///     1. Prefix padding count
+///     2. Suffix padding count
+///     3. Padding value)
+#[derive(Debug, Clone, Copy)]
+pub struct PadAxis<T>(pub usize, pub usize, pub T);
+pub struct Padding<T, const N: usize> {
+    pub axes_padding: [PadAxis<T>; N],
+    pub padded_sizes: [usize; N],
+    pub padded_strides: [usize; N],
+    pub original_strides: [usize; N],
+}
+impl<T: Clone + Copy, const N: usize> Padding<T, N> {
+    pub fn new(axes_padding: [PadAxis<T>; N], shape: &Shape<N>) -> Self {
+        let mut padded_sizes = shape.dimensions.clone();
+        padded_sizes.iter_mut().zip(axes_padding.iter()).for_each(
+            |(size, PadAxis(prefix_count, suffix_count, _))| {
+                *size = *size + prefix_count + suffix_count
+            },
+        );
+        let mut padded_strides = [1; N];
+        for idx in 1..N {
+            padded_strides[idx - 1] = padded_sizes[idx..].iter().fold(1, |res, &val| res * val);
+        }
+        Padding {
+            axes_padding,
+            padded_sizes,
+            padded_strides,
+            original_strides: shape.strides,
+        }
+    }
+
+    // TODO: Optimize this function further by collapsing dimensions that are not padded into the previous dimension, this enables larger chunks being transferred at once
+    pub fn pad_array(&self, new_values: &mut Vec<T>, original_values: &[T], axis_index: usize) {
+        let padded_stride = self.padded_strides[axis_index];
+        let original_stride = self.original_strides[axis_index];
+        let n_prefix = padded_stride * self.axes_padding[axis_index].0;
+        let n_suffix = padded_stride * self.axes_padding[axis_index].1;
+        let pad_val = self.axes_padding[axis_index].2;
+
+        new_values.resize(new_values.len() + n_prefix, pad_val);
+        if axis_index < N - 1 {
+            for original_values_chunk in original_values.chunks(original_stride) {
+                self.pad_array(new_values, original_values_chunk, axis_index + 1);
+            }
+        } else {
+            new_values.extend_from_slice(&original_values);
+        };
+        new_values.resize(new_values.len() + n_suffix, pad_val);
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Shape<const N: usize> {
+    pub dimensions: [usize; N],
+    pub strides: [usize; N],
+}
+impl<const N: usize> Shape<N> {
+    pub fn new(dimensions: [usize; N]) -> Self {
+        let strides = calculate_strides(&dimensions);
+        Shape {
+            dimensions,
+            strides,
+        }
+    }
+
+    pub fn remove(&self, index: ReduceAxis) -> Shape<{ N - 1 }>
+    where
+        [usize; N - 1]: Sized,
+    {
+        let mut new_dimensions = [0; { N - 1 }];
+        new_dimensions[0..index].copy_from_slice(&self.dimensions[0..index]);
+        new_dimensions[index..].copy_from_slice(&self.dimensions[(index + 1)..]);
+        Shape::new(new_dimensions)
+    }
+
+    pub fn insert(&self, new_axis: NewAxis) -> Shape<{ N + 1 }>
+    where
+        [usize; N + 1]: Sized,
+    {
+        let mut new_dimensions = [0; { N + 1 }];
+        new_dimensions[0..new_axis.index].copy_from_slice(&self.dimensions[0..new_axis.index]);
+        new_dimensions[new_axis.index] = new_axis.axis_size;
+        new_dimensions[(new_axis.index + 1)..].copy_from_slice(&self.dimensions[new_axis.index..]);
+        Shape::new(new_dimensions)
+    }
+
+    pub fn permute_inplace(&mut self, new_order: &[usize; N]) {
+        let mut new_shape = [0; N];
+        let mut new_strides = [0; N];
+        for (new_idx, &old_idx) in new_order.iter().enumerate() {
+            new_shape[new_idx] = self.dimensions[old_idx];
+            new_strides[new_idx] = self.strides[old_idx];
+        }
+    }
+
+    pub fn permute(&self, new_order: &[usize; N]) -> Self {
+        let mut new_shape = [0; N];
+        for (permuted_idx, &original_idx) in new_order.iter().enumerate() {
+            new_shape[permuted_idx] = self.dimensions[original_idx];
+        }
+        Self::new(new_shape)
+    }
+
+    pub fn len(&self) -> usize {
+        N
+    }
+
+    pub fn nelem(&self) -> usize {
+        self.dimensions.iter().product()
+    }
+
+    pub fn array_to_linear_index(&self, array_index: &[usize]) -> usize {
+        self.strides
+            .iter()
+            .zip(array_index.iter())
+            .fold(0, |res, (&lval, &rval)| res + lval * rval)
+    }
+
+    pub fn linear_to_array_index(&self, linear_index: usize) -> [usize; N] {
+        let mut results = [1; N];
+        let mut counter = linear_index;
+        for (idx, &size) in self.strides.iter().enumerate() {
+            results[idx] = counter / size;
+            counter = counter % size;
+        }
+        results
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Array<T, const N: usize>
@@ -475,5 +629,85 @@ mod tests {
             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
         ];
         compare_slices(&padded_values.values.borrow(), &target);
+    }
+
+    #[test]
+    fn shape_strides() {
+        let shape = Shape::new([2, 2, 2]);
+        let target_stride = [4, 2, 1];
+        assert_eq!(shape.strides, target_stride);
+    }
+
+    #[test]
+    fn padding_utilities() {
+        let padding_axes = [PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0)];
+        let shape = Shape::new([2, 2]);
+        let padding_helper = Padding::new(padding_axes, &shape);
+        assert_eq!(padding_helper.padded_strides, [4, 1]);
+
+        let padding_axes = [PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0)];
+        let shape = Shape::new([1, 1, 1]);
+        let padding_helper = Padding::new(padding_axes, &shape);
+        assert_eq!(padding_helper.padded_strides, [9, 3, 1]);
+    }
+
+    #[test]
+    fn linear_to_array_index() {
+        let shape = Shape::new([2, 2, 2]);
+
+        let res = shape.linear_to_array_index(0);
+        let target = [0, 0, 0];
+        assert_eq!(res, target);
+
+        let res = shape.linear_to_array_index(1);
+        let target = [0, 0, 1];
+        assert_eq!(res, target);
+
+        let res = shape.linear_to_array_index(2);
+        let target = [0, 1, 0];
+        assert_eq!(res, target);
+
+        let res = shape.linear_to_array_index(3);
+        let target = [0, 1, 1];
+        assert_eq!(res, target);
+
+        let res = shape.linear_to_array_index(4);
+        let target = [1, 0, 0];
+        assert_eq!(res, target);
+
+        let res = shape.linear_to_array_index(5);
+        let target = [1, 0, 1];
+        assert_eq!(res, target);
+
+        let res = shape.linear_to_array_index(6);
+        let target = [1, 1, 0];
+        assert_eq!(res, target);
+
+        let res = shape.linear_to_array_index(7);
+        let target = [1, 1, 1];
+        assert_eq!(res, target);
+    }
+
+    #[test]
+    fn array_to_linear_index() {
+        let shape = Shape::new([1, 2, 3]);
+
+        let res = shape.array_to_linear_index(&[0, 0, 0]);
+        assert_eq!(res, 0);
+
+        let res = shape.array_to_linear_index(&[0, 0, 1]);
+        assert_eq!(res, 1);
+
+        let res = shape.array_to_linear_index(&[0, 0, 2]);
+        assert_eq!(res, 2);
+
+        let res = shape.array_to_linear_index(&[0, 1, 0]);
+        assert_eq!(res, 3);
+
+        let res = shape.array_to_linear_index(&[0, 1, 1]);
+        assert_eq!(res, 4);
+
+        let res = shape.array_to_linear_index(&[0, 1, 2]);
+        assert_eq!(res, 5);
     }
 }

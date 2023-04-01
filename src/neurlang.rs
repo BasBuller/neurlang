@@ -1,5 +1,5 @@
-use crate::utils::calculate_strides;
 use std::rc::Rc;
+use crate::array::PadAxis;
 
 #[derive(Debug, Clone)]
 pub enum MemoryLayout {
@@ -7,157 +7,53 @@ pub enum MemoryLayout {
     RowMajor,
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct ArrayIndex<const N: usize> {
-    pub index: [usize; N],
-}
-impl<const N: usize> ArrayIndex<N> {
-    pub fn new(index: [usize; N]) -> Self {
-        ArrayIndex { index }
+fn calculate_strides(dimensions: &[usize]) -> Vec<usize> {
+    let mut results = vec![1; dimensions.len()];
+    for idx in (0..dimensions.len() - 1).rev() {
+        results[idx] = results[idx + 1] * dimensions[idx + 1];
     }
+    results
 }
 
 #[derive(Debug, Clone)]
-pub struct NewAxis {
-    index: usize,
-    axis_size: usize,
+pub struct TrackingShape {
+    pub dimensions: Vec<usize>,
+    pub strides: Vec<usize>,
 }
-impl NewAxis {
-    pub fn new(index: usize, axis_size: usize) -> Self {
-        NewAxis {
-            index: index,
-            axis_size: axis_size,
-        }
-    }
-}
-
-/// Contains:
-///     1. Prefix padding count
-///     2. Suffix padding count
-///     3. Padding value)
-#[derive(Debug, Clone, Copy)]
-pub struct PadAxis<T>(pub usize, pub usize, pub T);
-pub struct Padding<T, const N: usize> {
-    pub axes_padding: [PadAxis<T>; N],
-    pub padded_sizes: [usize; N],
-    pub padded_strides: [usize; N],
-    pub original_strides: [usize; N],
-}
-impl<T: Clone + Copy, const N: usize> Padding<T, N> {
-    pub fn new(axes_padding: [PadAxis<T>; N], shape: &Shape<N>) -> Self {
-        let mut padded_sizes = shape.dimensions.clone();
-        padded_sizes.iter_mut().zip(axes_padding.iter()).for_each(
-            |(size, PadAxis(prefix_count, suffix_count, _))| {
-                *size = *size + prefix_count + suffix_count
-            },
-        );
-        let mut padded_strides = [1; N];
-        for idx in 1..N {
-            padded_strides[idx - 1] = padded_sizes[idx..].iter().fold(1, |res, &val| res * val);
-        }
-        Padding {
-            axes_padding,
-            padded_sizes,
-            padded_strides,
-            original_strides: shape.strides,
-        }
-    }
-
-    // TODO: Optimize this function further by collapsing dimensions that are not padded into the previous dimension, this enables larger chunks being transferred at once
-    pub fn pad_array(&self, new_values: &mut Vec<T>, original_values: &[T], axis_index: usize) {
-        let padded_stride = self.padded_strides[axis_index];
-        let original_stride = self.original_strides[axis_index];
-        let n_prefix = padded_stride * self.axes_padding[axis_index].0;
-        let n_suffix = padded_stride * self.axes_padding[axis_index].1;
-        let pad_val = self.axes_padding[axis_index].2;
-
-        new_values.resize(new_values.len() + n_prefix, pad_val);
-        if axis_index < N - 1 {
-            for original_values_chunk in original_values.chunks(original_stride) {
-                self.pad_array(new_values, original_values_chunk, axis_index + 1);
-            }
-        } else {
-            new_values.extend_from_slice(&original_values);
-        };
-        new_values.resize(new_values.len() + n_suffix, pad_val);
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Shape<const N: usize> {
-    pub dimensions: [usize; N],
-    pub strides: [usize; N],
-}
-impl<const N: usize> Shape<N> {
-    pub fn new(dimensions: [usize; N]) -> Self {
+impl TrackingShape {
+    pub fn new(dimensions: Vec<usize>) -> Self {
         let strides = calculate_strides(&dimensions);
-        Shape {
+        Self {
             dimensions,
             strides,
         }
     }
 
-    pub fn remove(&self, index: ReduceAxis) -> Shape<{ N - 1 }>
-    where
-        [usize; N - 1]: Sized,
-    {
-        let mut new_dimensions = [0; { N - 1 }];
-        new_dimensions[0..index].copy_from_slice(&self.dimensions[0..index]);
-        new_dimensions[index..].copy_from_slice(&self.dimensions[(index + 1)..]);
-        Shape::new(new_dimensions)
-    }
-
-    pub fn insert(&self, new_axis: NewAxis) -> Shape<{ N + 1 }>
-    where
-        [usize; N + 1]: Sized,
-    {
-        let mut new_dimensions = [0; { N + 1 }];
-        new_dimensions[0..new_axis.index].copy_from_slice(&self.dimensions[0..new_axis.index]);
-        new_dimensions[new_axis.index] = new_axis.axis_size;
-        new_dimensions[(new_axis.index + 1)..].copy_from_slice(&self.dimensions[new_axis.index..]);
-        Shape::new(new_dimensions)
-    }
-
-    pub fn permute_inplace(&mut self, new_order: &[usize; N]) {
-        let mut new_shape = [0; N];
-        let mut new_strides = [0; N];
-        for (new_idx, &old_idx) in new_order.iter().enumerate() {
-            new_shape[new_idx] = self.dimensions[old_idx];
-            new_strides[new_idx] = self.strides[old_idx];
+    pub fn init(dimensions: Vec<usize>, strides: Vec<usize>) -> Self {
+        Self {
+            dimensions,
+            strides,
         }
     }
-
-    pub fn permute(&self, new_order: &[usize; N]) -> Self {
-        let mut new_shape = [0; N];
-        for (permuted_idx, &original_idx) in new_order.iter().enumerate() {
-            new_shape[permuted_idx] = self.dimensions[original_idx];
-        }
-        Self::new(new_shape)
-    }
-
+    
     pub fn len(&self) -> usize {
-        N
+        self.dimensions.len()
     }
-
+    
     pub fn nelem(&self) -> usize {
         self.dimensions.iter().product()
     }
-
-    pub fn array_to_linear_index(&self, array_index: &[usize]) -> usize {
-        self.strides
-            .iter()
-            .zip(array_index.iter())
-            .fold(0, |res, (&lval, &rval)| res + lval * rval)
+    
+    pub fn remove(&self, index: usize) -> Self {
+        let mut new_dimensions = self.dimensions.clone();
+        new_dimensions.remove(index);
+        Self::new(new_dimensions)
     }
-
-    pub fn linear_to_array_index(&self, linear_index: usize) -> [usize; N] {
-        let mut results = [1; N];
-        let mut counter = linear_index;
-        for (idx, &size) in self.strides.iter().enumerate() {
-            results[idx] = counter / size;
-            counter = counter % size;
-        }
-        results
+    
+    pub fn insert(&self, index: usize, size: usize) -> Self {
+        let mut new_dimensions = self.dimensions.clone();
+        new_dimensions.insert(index, size);
+        Self::new(new_dimensions)
     }
 }
 
@@ -170,7 +66,7 @@ pub enum ReduceOp {
 }
 
 #[derive(Debug)]
-pub enum ASTOp<F, T: ExecuteAST<F>, const N: usize> {
+pub enum ASTOp<F, T: ExecuteAST<F>> {
     // Leaf
     Value {
         value: T,
@@ -178,106 +74,103 @@ pub enum ASTOp<F, T: ExecuteAST<F>, const N: usize> {
 
     // Unary
     Negate {
-        value: Rc<ASTNode<F, T, N>>,
+        value: Rc<ASTNode<F, T>>,
     },
     Exponential {
-        value: Rc<ASTNode<F, T, N>>,
+        value: Rc<ASTNode<F, T>>,
     },
     Log {
-        value: Rc<ASTNode<F, T, N>>,
+        value: Rc<ASTNode<F, T>>,
     },
 
     // Binary
     Add {
-        left_value: Rc<ASTNode<F, T, N>>,
-        right_value: Rc<ASTNode<F, T, N>>,
+        left_value: Rc<ASTNode<F, T>>,
+        right_value: Rc<ASTNode<F, T>>,
     },
     Sub {
-        left_value: Rc<ASTNode<F, T, N>>,
-        right_value: Rc<ASTNode<F, T, N>>,
+        left_value: Rc<ASTNode<F, T>>,
+        right_value: Rc<ASTNode<F, T>>,
     },
     Mul {
-        left_value: Rc<ASTNode<F, T, N>>,
-        right_value: Rc<ASTNode<F, T, N>>,
+        left_value: Rc<ASTNode<F, T>>,
+        right_value: Rc<ASTNode<F, T>>,
     },
     Div {
-        left_value: Rc<ASTNode<F, T, N>>,
-        right_value: Rc<ASTNode<F, T, N>>,
+        left_value: Rc<ASTNode<F, T>>,
+        right_value: Rc<ASTNode<F, T>>,
     },
     Pow {
-        left_value: Rc<ASTNode<F, T, N>>,
-        right_value: Rc<ASTNode<F, T, N>>,
+        left_value: Rc<ASTNode<F, T>>,
+        right_value: Rc<ASTNode<F, T>>,
     },
     CompareEqual {
-        left_value: Rc<ASTNode<F, T, N>>,
-        right_value: Rc<ASTNode<F, T, N>>,
+        left_value: Rc<ASTNode<F, T>>,
+        right_value: Rc<ASTNode<F, T>>,
     },
     Max {
-        left_value: Rc<ASTNode<F, T, N>>,
-        right_value: Rc<ASTNode<F, T, N>>,
+        left_value: Rc<ASTNode<F, T>>,
+        right_value: Rc<ASTNode<F, T>>,
     },
 
     // Reduce
     Reduce {
-        value: Rc<ASTNode<F, T, N>>,
+        value: Rc<ASTNode<F, T>>,
         dim: ReduceAxis,
         op: ReduceOp,
     },
 
     // Movement ops
     Unsqueeze {
-        value: Rc<ASTNode<F, T, N>>,
+        value: Rc<ASTNode<F, T>>,
         dim: usize,
     },
     Squeeze {
-        value: Rc<ASTNode<F, T, N>>,
+        value: Rc<ASTNode<F, T>>,
         dim: usize,
     },
     Reshape {
-        value: Rc<ASTNode<F, T, N>>,
-        new_shape: Shape<N>,
+        value: Rc<ASTNode<F, T>>,
+        new_shape: TrackingShape,
     },
     Permute {
-        value: Rc<ASTNode<F, T, N>>,
-        dim_order: [usize; N],
+        value: Rc<ASTNode<F, T>>,
+        dim_order: Vec<usize>,
     },
     Pad {
-        value: Rc<ASTNode<F, T, N>>,
-        axes_padding: [PadAxis<F>; N],
+        value: Rc<ASTNode<F, T>>,
+        axes_padding: Vec<PadAxis<F>>,
     },
     // Stride {
-    //     value: Rc<ASTNode<F, T, N>>,
+    //     value: Rc<ASTNode<F, T>>,
     //     dim: usize,
     //     stride_value: usize,
     // }
 }
 
 #[derive(Debug)]
-pub struct ASTNode<F, T: ExecuteAST<F>, const N: usize> {
-    op: ASTOp<F, T, N>,
-    shape: Shape<N>,
+pub struct ASTNode<F, T: ExecuteAST<F>> {
+    op: ASTOp<F, T>,
+    shape: TrackingShape,
 }
 
-impl<F, T: ExecuteAST<F>, const N: usize> ASTNode<F, T, N>
-where
-    [usize; N - 1]: Sized,
-{
+impl<F, T: ExecuteAST<F>> ASTNode<F, T> {
     // Unary
-    pub fn negate(self: Rc<Self>) -> Rc<ASTNode<F, T, N>> {
+    pub fn negate(self: Rc<Self>) -> Rc<ASTNode<F, T>> {
         let new_shape = self.shape.clone();
         Rc::new(ASTNode {
             op: ASTOp::Negate { value: self },
             shape: new_shape,
         })
     }
-    pub fn exp(self: Rc<Self>) -> Rc<ASTNode<F, T, N>> {
+    pub fn exp(self: Rc<Self>) -> Rc<ASTNode<F, T>> {
         let new_shape = self.shape.clone();
         Rc::new(ASTNode {
             op: ASTOp::Exponential { value: self },
             shape: new_shape,
         })
     }
-    pub fn log(self: Rc<Self>) -> Rc<ASTNode<F, T, N>> {
+    pub fn log(self: Rc<Self>) -> Rc<ASTNode<F, T>> {
         let new_shape = self.shape.clone();
         Rc::new(ASTNode {
             op: ASTOp::Log { value: self },
@@ -286,7 +179,7 @@ where
     }
 
     // Binary
-    pub fn add(self: Rc<Self>, right_value: Rc<ASTNode<F, T, N>>) -> Rc<ASTNode<F, T, N>> {
+    pub fn add(self: Rc<Self>, right_value: Rc<ASTNode<F, T>>) -> Rc<ASTNode<F, T>> {
         assert!(
             self.shape.dimensions == right_value.shape.dimensions,
             "Left tensor (shape: {:?}) and right tensor (shape: {:?}) not of equal shape",
@@ -303,7 +196,7 @@ where
             shape: new_shape,
         })
     }
-    pub fn subtract(self: Rc<Self>, right_value: Rc<ASTNode<F, T, N>>) -> Rc<ASTNode<F, T, N>> {
+    pub fn subtract(self: Rc<Self>, right_value: Rc<ASTNode<F, T>>) -> Rc<ASTNode<F, T>> {
         let new_shape = self.shape.clone();
         Rc::new(ASTNode {
             op: ASTOp::Add {
@@ -314,62 +207,63 @@ where
         })
     }
 
-    // // Reduce
-    // pub fn reduce(self: Rc<Self>, dim: ReduceAxis, op: ReduceOp) -> Rc<ASTNode<T, {N - 1}>> {
-    //     assert!(
-    //         self.shape.len() >= dim,
-    //         "Axis {} not in tensor of dimensions {}",
-    //         dim,
-    //         self.shape.len()
-    //     );
+    // Reduce
+    pub fn reduce(self: Rc<Self>, dim: ReduceAxis, op: ReduceOp) -> Rc<ASTNode<F, T>> {
+        assert!(
+            self.shape.len() >= dim,
+            "Axis {} not in tensor of dimensions {}",
+            dim,
+            self.shape.len()
+        );
 
-    //     let new_shape = self.shape.remove(dim);
-    //     Rc::new(ASTNode {
-    //         op: ASTOp::Reduce {
-    //             value: self,
-    //             dim: dim,
-    //             op: op,
-    //         },
-    //         shape: new_shape,
-    //     })
-    // }
+        let new_shape = self.shape.remove(dim);
+        Rc::new(ASTNode {
+            op: ASTOp::Reduce {
+                value: self,
+                dim: dim,
+                op: op,
+            },
+            shape: new_shape,
+        })
+    }
 
-    // pub fn unsqueeze(self: Rc<Self>, dim: usize) -> Rc<ASTNode<F, T, N>> {
-    //     assert!(
-    //         dim <= self.shape.dimensions.len(),
-    //         "Expanded dimension larger than existing shape",
-    //     );
+    pub fn unsqueeze(self: Rc<Self>, dim: usize) -> Rc<ASTNode<F, T>> {
+        assert!(
+            dim <= self.shape.dimensions.len(),
+            "Expanded dimension larger than existing shape",
+        );
 
-    //     let new_shape = self.shape.insert(NewAxis::new(dim, 1));
-    //     Rc::new(ASTNode {
-    //         op: ASTOp::Unsqueeze {
-    //             value: self,
-    //             dim: dim,
-    //         },
-    //         shape: new_shape,
-    //     })
-    // }
-    // pub fn squeeze(self: Rc<Self>, dim: usize) -> Rc<ASTNode<F, T, N>> {
-    //     assert!(
-    //         dim <= self.shape.dimensions.len(),
-    //         "Expanded dimension larger than existing shape",
-    //     );
-    //     assert!(
-    //         self.shape.dimensions[dim] == 1,
-    //         "Dimension to be squeezed is not 1",
-    //     );
+        let new_shape = self.shape.insert(dim, 1);
+        Rc::new(ASTNode {
+            op: ASTOp::Unsqueeze {
+                value: self,
+                dim: dim,
+            },
+            shape: new_shape,
+        })
+    }
 
-    //     let new_shape = self.shape.remove(dim);
-    //     Rc::new(ASTNode {
-    //         op: ASTOp::Squeeze {
-    //             value: self,
-    //             dim: dim,
-    //         },
-    //         shape: new_shape,
-    //     })
-    // }
+    pub fn squeeze(self: Rc<Self>, dim: usize) -> Rc<ASTNode<F, T>> {
+        assert!(
+            dim <= self.shape.dimensions.len(),
+            "Expanded dimension larger than existing shape",
+        );
+        assert!(
+            self.shape.dimensions[dim] == 1,
+            "Dimension to be squeezed is not 1",
+        );
 
-    pub fn reshape(self: Rc<Self>, new_shape: [usize; N]) -> Rc<ASTNode<F, T, N>> {
+        let new_shape = self.shape.remove(dim);
+        Rc::new(ASTNode {
+            op: ASTOp::Squeeze {
+                value: self,
+                dim: dim,
+            },
+            shape: new_shape,
+        })
+    }
+
+    pub fn reshape(self: Rc<Self>, new_shape: Vec<usize>) -> Rc<ASTNode<F, T>> {
         assert!(
             new_shape.iter().product::<usize>() == self.shape.nelem(),
             "Reshaped dimensions number elements ({}) does not match number elements of array ({})",
@@ -377,7 +271,7 @@ where
             self.shape.nelem(),
         );
 
-        let new_shape = Shape::new(new_shape);
+        let new_shape = TrackingShape::new(new_shape);
         Rc::new(ASTNode {
             op: ASTOp::Reshape {
                 value: self,
@@ -388,7 +282,7 @@ where
     }
 
     // Utils
-    pub fn new(value: T, shape: Shape<N>) -> Rc<ASTNode<F, T, N>> {
+    pub fn new(value: T, shape: TrackingShape) -> Rc<ASTNode<F, T>> {
         Rc::new(ASTNode {
             op: ASTOp::Value { value },
             shape: shape,
@@ -464,7 +358,7 @@ pub trait ExecuteAST<F> {
     // // Movement ops
     fn unsqueeze_v(&self, dim: usize) -> Self;
     fn squeeze_v(&self, dim: usize) -> Self;
-    fn reshape_v<const N: usize>(&self, new_shape: Shape<N>) -> Self;
+    fn reshape_v(&self, new_shape: TrackingShape) -> Self;
     fn permute_v(&self, axis_ordering: &[usize]) -> Self;
     fn pad_v(&self, axes_padding: &[PadAxis<F>])-> Self;
     // fn stride_v(&self, ...) -> Self;
@@ -476,84 +370,4 @@ pub trait ExecuteAST<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn linear_to_array_index() {
-        let shape = Shape::new([2, 2, 2]);
-
-        let res = shape.linear_to_array_index(0);
-        let target = [0, 0, 0];
-        assert_eq!(res, target);
-
-        let res = shape.linear_to_array_index(1);
-        let target = [0, 0, 1];
-        assert_eq!(res, target);
-
-        let res = shape.linear_to_array_index(2);
-        let target = [0, 1, 0];
-        assert_eq!(res, target);
-
-        let res = shape.linear_to_array_index(3);
-        let target = [0, 1, 1];
-        assert_eq!(res, target);
-
-        let res = shape.linear_to_array_index(4);
-        let target = [1, 0, 0];
-        assert_eq!(res, target);
-
-        let res = shape.linear_to_array_index(5);
-        let target = [1, 0, 1];
-        assert_eq!(res, target);
-
-        let res = shape.linear_to_array_index(6);
-        let target = [1, 1, 0];
-        assert_eq!(res, target);
-
-        let res = shape.linear_to_array_index(7);
-        let target = [1, 1, 1];
-        assert_eq!(res, target);
-    }
-
-    #[test]
-    fn array_to_linear_index() {
-        let shape = Shape::new([1, 2, 3]);
-
-        let res = shape.array_to_linear_index(&[0, 0, 0]);
-        assert_eq!(res, 0);
-
-        let res = shape.array_to_linear_index(&[0, 0, 1]);
-        assert_eq!(res, 1);
-
-        let res = shape.array_to_linear_index(&[0, 0, 2]);
-        assert_eq!(res, 2);
-
-        let res = shape.array_to_linear_index(&[0, 1, 0]);
-        assert_eq!(res, 3);
-
-        let res = shape.array_to_linear_index(&[0, 1, 1]);
-        assert_eq!(res, 4);
-
-        let res = shape.array_to_linear_index(&[0, 1, 2]);
-        assert_eq!(res, 5);
-    }
-
-    #[test]
-    fn shape_strides() {
-        let shape = Shape::new([2, 2, 2]);
-        let target_stride = [4, 2, 1];
-        assert_eq!(shape.strides, target_stride);
-    }
-
-    #[test]
-    fn padding_utilities() {
-        let padding_axes = [PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0)];
-        let shape = Shape::new([2, 2]);
-        let padding_helper = Padding::new(padding_axes, &shape);
-        assert_eq!(padding_helper.padded_strides, [4, 1]);
-
-        let padding_axes = [PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0)];
-        let shape = Shape::new([1, 1, 1]);
-        let padding_helper = Padding::new(padding_axes, &shape);
-        assert_eq!(padding_helper.padded_strides, [9, 3, 1]);
-    }
 }

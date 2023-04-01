@@ -1,5 +1,9 @@
-use crate::neurlang::{ArrayIndex, MemoryLayout, Shape};
-use num::Float;
+use crate::neurlang::MemoryLayout;
+use crate::array::{ArrayIndex, Shape};
+
+pub fn make_slice<const N: usize>(shape: &Shape<N>, axis: usize, index: usize) -> Slice<N> {
+    Slice { shape, axis, index }
+}
 
 // //////////////////
 // Slicing
@@ -53,54 +57,6 @@ impl Iterator for SliceIterator {
         }
     }
 }
-
-// /////////////////////////
-// Permute
-// /////////////////////////
-pub fn make_slice<const N: usize>(shape: &Shape<N>, axis: usize, index: usize) -> Slice<N> {
-    Slice { shape, axis, index }
-}
-
-fn slice_vector<T: Float, const N: usize>(
-    values: &Vec<T>,
-    shape: &Shape<N>,
-    axis: usize,
-    index: usize,
-) -> Vec<T> {
-    let slice_iter = make_slice(shape, axis, index).into_iter();
-    let mut res_values = Vec::with_capacity(slice_iter.n_prefix * slice_iter.n_suffix);
-    for (start_idx, end_idx) in slice_iter {
-        res_values.extend_from_slice(&values[start_idx..end_idx]);
-    }
-    res_values
-}
-
-// pub fn permute_naive<T: Float, const N: usize>(
-//     values: &Vec<T>,
-//     current_shape: &Shape<N>,
-//     new_shape: [usize; N],
-// ) -> Vec<T> {
-//     if new_shape.len() == 1 {
-//         values.clone()
-//     } else {
-//         let new_slice_shape = new_shape[1..]
-//             .iter()
-//             .map(|&val| if val < new_shape[0] { val } else { val - 1 })
-//             .collect::<Vec<_>>();
-//         let current_slice_shape = current_shape.remove(new_shape[0]);
-
-//         let dim_size = current_shape.dimensions[new_shape[0]];
-//         let new_array = (0..dim_size)
-//             .flat_map(|dim_value| {
-//                 let slice = slice_vector(values, current_shape, new_shape[0], dim_value);
-//                 let slice = permute_naive(&slice, &current_slice_shape, new_slice_shape.clone());
-//                 slice
-//             })
-//             .collect::<Vec<_>>();
-
-//         new_array
-//     }
-// }
 
 // /////////////////////////
 // Iterate over tensor indices
