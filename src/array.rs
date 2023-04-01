@@ -1,6 +1,6 @@
 use crate::indexing::*;
 use crate::neurlang::{ExecuteAST, MemoryLayout, ReduceAxis, ReduceOp};
-use crate::utils::{calculate_strides, permute};
+use crate::utils::{calculate_strides, permute, permute_with_target};
 
 use num::Float;
 use rand::prelude::*;
@@ -130,6 +130,14 @@ impl Shape {
             .iter()
             .zip(array_index.iter())
             .fold(0, |res, (&lval, &rval)| res + lval * rval)
+    }
+    
+    pub fn linear_to_array_index_with_target(&self, linear_index: usize, target_slice: &mut [usize]) {
+        let mut counter = linear_index;
+        for (target, &size) in target_slice.iter_mut().zip(self.strides.iter()) {
+            *target = counter / size;
+            counter = counter % size;
+        }
     }
 
     pub fn linear_to_array_index(&self, linear_index: usize) -> Vec<usize> {
@@ -348,11 +356,13 @@ where
         let shape = self.shape.borrow();
         let permuted_shape = shape.permute(&permutation);
 
+        let mut temp_ordered_index = vec![0; shape.len()];
+        let mut temp_permuted_index = vec![0; shape.len()];
         let mut results = vec![Default::default(); cur_values.len()];
         for (idx, &value) in cur_values.iter().enumerate() {
-            let ordered_array_index = shape.linear_to_array_index(idx);
-            let permuted_array_index = permute(&ordered_array_index, &permutation);
-            let permuted_linear_index = permuted_shape.array_to_linear_index(&permuted_array_index);
+            shape.linear_to_array_index_with_target(idx, &mut temp_ordered_index);
+            permute_with_target(&temp_ordered_index, &mut temp_permuted_index, &permutation);
+            let permuted_linear_index = permuted_shape.array_to_linear_index(&temp_permuted_index);
             results[permuted_linear_index] = value;
         }
 

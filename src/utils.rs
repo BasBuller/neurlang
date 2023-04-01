@@ -7,6 +7,12 @@ pub fn permute<T: Copy>(permute_values: &[T], permutation: &[usize]) -> Vec<T> {
     permutation.iter().map(|&idx| permute_values[idx]).collect()
 }
 
+pub fn permute_with_target<T: Copy>(permute_values: &[T], target_slice: &mut [T], permutation: &[usize]) {
+    for (target, &permute_idx) in target_slice.iter_mut().zip(permutation.iter()) {
+        *target = permute_values[permute_idx];
+    }
+}
+
 pub fn outer_product<T: Copy + Sized>(major_vals: &Vec<Vec<T>>, minor_vals: &[T]) -> Vec<Vec<T>> {
     let mut res_values: Vec<Vec<T>> = Vec::with_capacity(major_vals.len() * minor_vals.len());
     for major_val in major_vals.iter() {
