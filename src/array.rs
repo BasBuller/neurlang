@@ -2,7 +2,7 @@ use crate::indexing::*;
 use crate::neurlang::{
     ExecuteAST, MemoryLayout, NewAxis, PadAxis, Padding, ReduceAxis, ReduceOp, Shape,
 };
-use crate::utils::{calculate_strides, permute};
+use crate::utils::{calculate_strides, permute, linear_to_array_index, array_to_linear_index};
 
 use num::Float;
 use rand::prelude::*;
@@ -217,6 +217,26 @@ where
         padding_helper.pad_array(&mut new_values, &self.values.borrow(), 0);
         Array::new(new_values, Shape::new(padding_helper.padded_sizes))
     }
+    
+    // pub fn stride(&self, strides: [usize; N]) -> Self {
+    //     let mut new_dimensions = self.shape.borrow().dimensions.clone();
+    //     for (n_dim, &stride_mul) in new_dimensions.iter_mut().zip(strides.iter()) {
+    //         *n_dim /= stride_mul;
+    //     }
+
+    //     let mut long_strides = self.shape.borrow().strides.clone();
+    //     for (n_stride, &stride_mul) in long_strides.iter_mut().zip(strides.iter()) {
+    //         *n_stride *= stride_mul;
+    //     }
+    //     let new_n_elem = new_dimensions.iter().product();
+    //     let mut new_values = Vec::with_capacity(new_n_elem);
+    //     for linear_idx in 0..new_n_elem {
+    //         let array_index
+    //     }
+    //     // let new_values = 
+        
+    //     Array::new(self.values.borrow().clone(), Shape::new(new_dimensions))
+    // }
 
     // Higher order ops
     pub fn matmul(&self, right_array: &Array<T, N>) -> Self {

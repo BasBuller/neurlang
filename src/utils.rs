@@ -34,6 +34,23 @@ pub fn permute<T: Default + Copy, const N: usize>(
     return res;
 }
 
+pub fn linear_to_array_index<const N: usize>(linear_index: usize, strides: &[usize; N]) -> [usize; N] {
+    let mut results = [1; N];
+    let mut index = linear_index;
+    for (res_val, &stride) in results.iter_mut().zip(strides.iter()) {
+        *res_val = index / stride;
+        index %= stride;
+    }
+    results
+}
+
+pub fn array_to_linear_index<const N: usize>(array_index: &[usize; N], strides: &[usize; N]) -> usize {
+    strides
+        .iter()
+        .zip(array_index.iter())
+        .fold(0, |res, (&lval, &rval)| res + lval * rval)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
