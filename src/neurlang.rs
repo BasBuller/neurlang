@@ -170,7 +170,7 @@ pub enum ReduceOp {
 }
 
 #[derive(Debug)]
-pub enum ASTOp<T: ExecuteAST, const N: usize> {
+pub enum ASTOp<F, T: ExecuteAST<F>, const N: usize> {
     // Leaf
     Value {
         value: T,
@@ -178,107 +178,106 @@ pub enum ASTOp<T: ExecuteAST, const N: usize> {
 
     // Unary
     Negate {
-        value: Rc<ASTNode<T, N>>,
+        value: Rc<ASTNode<F, T, N>>,
     },
     Exponential {
-        value: Rc<ASTNode<T, N>>,
+        value: Rc<ASTNode<F, T, N>>,
     },
     Log {
-        value: Rc<ASTNode<T, N>>,
+        value: Rc<ASTNode<F, T, N>>,
     },
 
     // Binary
     Add {
-        left_value: Rc<ASTNode<T, N>>,
-        right_value: Rc<ASTNode<T, N>>,
+        left_value: Rc<ASTNode<F, T, N>>,
+        right_value: Rc<ASTNode<F, T, N>>,
     },
     Sub {
-        left_value: Rc<ASTNode<T, N>>,
-        right_value: Rc<ASTNode<T, N>>,
+        left_value: Rc<ASTNode<F, T, N>>,
+        right_value: Rc<ASTNode<F, T, N>>,
     },
     Mul {
-        left_value: Rc<ASTNode<T, N>>,
-        right_value: Rc<ASTNode<T, N>>,
+        left_value: Rc<ASTNode<F, T, N>>,
+        right_value: Rc<ASTNode<F, T, N>>,
     },
     Div {
-        left_value: Rc<ASTNode<T, N>>,
-        right_value: Rc<ASTNode<T, N>>,
+        left_value: Rc<ASTNode<F, T, N>>,
+        right_value: Rc<ASTNode<F, T, N>>,
     },
     Pow {
-        left_value: Rc<ASTNode<T, N>>,
-        right_value: Rc<ASTNode<T, N>>,
+        left_value: Rc<ASTNode<F, T, N>>,
+        right_value: Rc<ASTNode<F, T, N>>,
     },
     CompareEqual {
-        left_value: Rc<ASTNode<T, N>>,
-        right_value: Rc<ASTNode<T, N>>,
+        left_value: Rc<ASTNode<F, T, N>>,
+        right_value: Rc<ASTNode<F, T, N>>,
     },
     Max {
-        left_value: Rc<ASTNode<T, N>>,
-        right_value: Rc<ASTNode<T, N>>,
+        left_value: Rc<ASTNode<F, T, N>>,
+        right_value: Rc<ASTNode<F, T, N>>,
     },
 
     // Reduce
     Reduce {
-        value: Rc<ASTNode<T, N>>,
+        value: Rc<ASTNode<F, T, N>>,
         dim: ReduceAxis,
         op: ReduceOp,
     },
 
     // Movement ops
     Unsqueeze {
-        value: Rc<ASTNode<T, N>>,
+        value: Rc<ASTNode<F, T, N>>,
         dim: usize,
     },
     Squeeze {
-        value: Rc<ASTNode<T, N>>,
+        value: Rc<ASTNode<F, T, N>>,
         dim: usize,
     },
     Reshape {
-        value: Rc<ASTNode<T, N>>,
+        value: Rc<ASTNode<F, T, N>>,
         new_shape: Shape<N>,
     },
     Permute {
-        value: Rc<ASTNode<T, N>>,
-        dim_order: Vec<usize>,
+        value: Rc<ASTNode<F, T, N>>,
+        dim_order: [usize; N],
     },
-    // Pad {
-    //     value: Rc<ASTNode<T, N>>,
-    //     dim: usize,
-    //     pad_value: T,
-    // },
+    Pad {
+        value: Rc<ASTNode<F, T, N>>,
+        axes_padding: [PadAxis<F>; N],
+    },
     // Stride {
-    //     value: Rc<ASTNode<T, N>>,
+    //     value: Rc<ASTNode<F, T, N>>,
     //     dim: usize,
     //     stride_value: usize,
     // }
 }
 
 #[derive(Debug)]
-pub struct ASTNode<T: ExecuteAST, const N: usize> {
-    op: ASTOp<T, N>,
+pub struct ASTNode<F, T: ExecuteAST<F>, const N: usize> {
+    op: ASTOp<F, T, N>,
     shape: Shape<N>,
 }
 
-impl<T: ExecuteAST, const N: usize> ASTNode<T, N>
+impl<F, T: ExecuteAST<F>, const N: usize> ASTNode<F, T, N>
 where
     [usize; N - 1]: Sized,
 {
     // Unary
-    pub fn negate(self: Rc<Self>) -> Rc<ASTNode<T, N>> {
+    pub fn negate(self: Rc<Self>) -> Rc<ASTNode<F, T, N>> {
         let new_shape = self.shape.clone();
         Rc::new(ASTNode {
             op: ASTOp::Negate { value: self },
             shape: new_shape,
         })
     }
-    pub fn exp(self: Rc<Self>) -> Rc<ASTNode<T, N>> {
+    pub fn exp(self: Rc<Self>) -> Rc<ASTNode<F, T, N>> {
         let new_shape = self.shape.clone();
         Rc::new(ASTNode {
             op: ASTOp::Exponential { value: self },
             shape: new_shape,
         })
     }
-    pub fn log(self: Rc<Self>) -> Rc<ASTNode<T, N>> {
+    pub fn log(self: Rc<Self>) -> Rc<ASTNode<F, T, N>> {
         let new_shape = self.shape.clone();
         Rc::new(ASTNode {
             op: ASTOp::Log { value: self },
@@ -287,7 +286,7 @@ where
     }
 
     // Binary
-    pub fn add(self: Rc<Self>, right_value: Rc<ASTNode<T, N>>) -> Rc<ASTNode<T, N>> {
+    pub fn add(self: Rc<Self>, right_value: Rc<ASTNode<F, T, N>>) -> Rc<ASTNode<F, T, N>> {
         assert!(
             self.shape.dimensions == right_value.shape.dimensions,
             "Left tensor (shape: {:?}) and right tensor (shape: {:?}) not of equal shape",
@@ -304,7 +303,7 @@ where
             shape: new_shape,
         })
     }
-    pub fn subtract(self: Rc<Self>, right_value: Rc<ASTNode<T, N>>) -> Rc<ASTNode<T, N>> {
+    pub fn subtract(self: Rc<Self>, right_value: Rc<ASTNode<F, T, N>>) -> Rc<ASTNode<F, T, N>> {
         let new_shape = self.shape.clone();
         Rc::new(ASTNode {
             op: ASTOp::Add {
@@ -335,7 +334,7 @@ where
     //     })
     // }
 
-    // pub fn unsqueeze(self: Rc<Self>, dim: usize) -> Rc<ASTNode<T, N>> {
+    // pub fn unsqueeze(self: Rc<Self>, dim: usize) -> Rc<ASTNode<F, T, N>> {
     //     assert!(
     //         dim <= self.shape.dimensions.len(),
     //         "Expanded dimension larger than existing shape",
@@ -350,7 +349,7 @@ where
     //         shape: new_shape,
     //     })
     // }
-    // pub fn squeeze(self: Rc<Self>, dim: usize) -> Rc<ASTNode<T, N>> {
+    // pub fn squeeze(self: Rc<Self>, dim: usize) -> Rc<ASTNode<F, T, N>> {
     //     assert!(
     //         dim <= self.shape.dimensions.len(),
     //         "Expanded dimension larger than existing shape",
@@ -370,7 +369,7 @@ where
     //     })
     // }
 
-    pub fn reshape(self: Rc<Self>, new_shape: [usize; N]) -> Rc<ASTNode<T, N>> {
+    pub fn reshape(self: Rc<Self>, new_shape: [usize; N]) -> Rc<ASTNode<F, T, N>> {
         assert!(
             new_shape.iter().product::<usize>() == self.shape.nelem(),
             "Reshaped dimensions number elements ({}) does not match number elements of array ({})",
@@ -389,7 +388,7 @@ where
     }
 
     // Utils
-    pub fn new(value: T, shape: Shape<N>) -> Rc<ASTNode<T, N>> {
+    pub fn new(value: T, shape: Shape<N>) -> Rc<ASTNode<F, T, N>> {
         Rc::new(ASTNode {
             op: ASTOp::Value { value },
             shape: shape,
@@ -436,11 +435,12 @@ where
             ASTOp::Squeeze { value, dim } => value.execute().squeeze_v(*dim),
             ASTOp::Reshape { value, new_shape } => value.execute().reshape_v(new_shape.clone()),
             ASTOp::Permute { value, dim_order } => value.execute().permute_v(dim_order),
+            ASTOp::Pad { value, axes_padding } => value.execute().pad_v(axes_padding),
         }
     }
 }
 
-pub trait ExecuteAST {
+pub trait ExecuteAST<F> {
     // Leaf
     fn value_v(&self) -> Self;
 
@@ -466,7 +466,7 @@ pub trait ExecuteAST {
     fn squeeze_v(&self, dim: usize) -> Self;
     fn reshape_v<const N: usize>(&self, new_shape: Shape<N>) -> Self;
     fn permute_v(&self, axis_ordering: &[usize]) -> Self;
-    // fn pad_v(&self, ...) -> Self;
+    fn pad_v(&self, axes_padding: &[PadAxis<F>])-> Self;
     // fn stride_v(&self, ...) -> Self;
 
     // // Maybe want to include this? Does make for a way nicer experience

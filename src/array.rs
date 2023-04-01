@@ -2,7 +2,7 @@ use crate::indexing::*;
 use crate::neurlang::{
     ExecuteAST, MemoryLayout, NewAxis, PadAxis, Padding, ReduceAxis, ReduceOp, Shape,
 };
-use crate::utils::{calculate_strides, permute, linear_to_array_index, array_to_linear_index};
+use crate::utils::permute;
 
 use num::Float;
 use rand::prelude::*;
@@ -286,6 +286,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::calculate_strides;
 
     fn compare_slices<T: PartialEq>(target: &[T], values: &[T]) {
         let compared = target
