@@ -258,8 +258,20 @@ where
     pub fn add(&self, right_array: &Self) -> Self {
         self.binary_op(right_array, |(&lval, &rval)| lval + rval)
     }
+    pub fn sub(&self, right_array: &Self) -> Self {
+        self.binary_op(right_array, |(&lval, &rval)| lval - rval)
+    }
     pub fn multiply(&self, right_array: &Self) -> Self {
         self.binary_op(right_array, |(&lval, &rval)| lval * rval)
+    }
+    pub fn divide(&self, right_array: &Self) -> Self {
+        self.binary_op(right_array, |(&lval, &rval)| lval / rval)
+    }
+    pub fn pow(&self, right_array: &Self) -> Self {
+        self.binary_op(right_array, |(&lval, &rval)| lval.powf(rval))
+    }
+    pub fn compare_equal(&self, right_array: &Self) -> Self {
+        self.binary_op(right_array, |(&lval, &rval)| if lval == rval { T::one() } else { T::zero() })
     }
     pub fn max(&self, right_array: &Self) -> Self {
         self.binary_op(
@@ -398,13 +410,16 @@ where
     }
 }
 
-// impl<T> ExecuteAST for Array<T>
+// impl<T> ExecuteAST<T> for Array<T>
 // where
-//     T: Float + std::fmt::Debug,
+//     T: Float + std::fmt::Debug + Default,
 // {
+//     // Leaf
 //     fn value_v(&self) -> Self {
 //         self.clone()
 //     }
+
+//     // Unary
 //     fn negate_v(&self) -> Self {
 //         self.negate()
 //     }
@@ -414,12 +429,31 @@ where
 //     fn log_v(&self) -> Self {
 //         self.ln()
 //     }
+    
+//     // Binary
 //     fn add_v(&self, right_value: &Self) -> Self {
 //         self.add(right_value)
+//     }
+//     fn sub_v(&self, right_value: &Self) -> Self {
+//         self.sub(right_value) 
+//     }
+//     fn mul_v(&self, right_value: &Self) -> Self {
+//         self.multiply(right_value)
+//     }
+//     fn div_v(&self, right_value: &Self) -> Self {
+//         self.divide(right_value)
+//     }
+//     fn pow_v(&self, right_value: &Self) -> Self {
+//         self.pow(right_value)
+//     }
+//     fn compare_equal_v(&self, right_value: &Self) -> Self {
+//         self.compare_equal(right_value)
 //     }
 //     fn max_v(&self, right_value: &Self) -> Self {
 //         self.max(right_value)
 //     }
+    
+//     // Reduce
 //     fn reduce_v(&self, axis: ReduceAxis, op: ReduceOp) -> Self {
 //         match op {
 //             ReduceOp::Sum => self.reduce_sum(axis),
@@ -432,7 +466,7 @@ where
 //     fn squeeze_v(&self, dim: usize) -> Self {
 //         self.squeeze(dim)
 //     }
-//     fn reshape_v(&self, new_shape: Shape) -> Self {
+//     fn reshape_v(&self, new_shape: Shape<N>) -> Self {
 //         self.reshape(new_shape)
 //     }
 // }
