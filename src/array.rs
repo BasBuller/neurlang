@@ -371,7 +371,8 @@ where
         let permuted_shape = shape.permute(permutation);
         let reverted_permuted_strides = revert_permute(&permuted_shape.strides, &permutation);
 
-        let mut results = vec![Default::default(); cur_values.len()];
+        let mut results = Vec::with_capacity(cur_values.len());
+        unsafe { results.set_len(cur_values.len()); }
         for (idx, &value) in cur_values.iter().enumerate() {
             let permuted_linear_index = shape.linear_permute_linear(idx, &reverted_permuted_strides);
             results[permuted_linear_index] = value;
