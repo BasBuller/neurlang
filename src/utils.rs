@@ -7,6 +7,14 @@ pub fn permute<T: Copy>(permute_values: &[T], permutation: &[usize]) -> Vec<T> {
     permutation.iter().map(|&idx| permute_values[idx]).collect()
 }
 
+pub fn revert_permute<T: Copy + Default>(permuted_values: &[T], permutation: &[usize]) -> Vec<T> {
+    let mut reverted_values = vec![T::default(); permuted_values.len()];
+    for (&val, &orig_idx) in permuted_values.iter().zip(permutation.iter()) {
+        reverted_values[orig_idx] = val;
+    }
+    reverted_values
+}
+
 pub fn permute_with_target<T: Copy>(permute_values: &[T], target_slice: &mut [T], permutation: &[usize]) {
     for (target, &permute_idx) in target_slice.iter_mut().zip(permutation.iter()) {
         *target = permute_values[permute_idx];
@@ -46,14 +54,15 @@ pub fn linear_to_array_index<const N: usize>(
     results
 }
 
-pub fn array_to_linear_index<const N: usize>(
-    array_index: &[usize; N],
-    strides: &[usize; N],
+pub fn array_to_linear_index(
+    array_index: &[usize],
+    strides: &[usize],
 ) -> usize {
     strides
         .iter()
         .zip(array_index.iter())
-        .fold(0, |res, (&lval, &rval)| res + lval * rval)
+        .map(|(&lval, &rval)| lval * rval)
+        .fold(0, |res, val| res + val)
 }
 
 pub fn compare_slices<T: PartialEq>(target: &[T], values: &[T]) {
@@ -97,5 +106,17 @@ mod tests {
         let target = [2, 1, 4, 3];
         let permuted = permute(&values, &permutation);
         compare_slices(&target, &permuted);
+        
+        let unpermuted = permute(&permuted, &permutation);
+        compare_slices(&values, &unpermuted);
+    }
+    
+    #[test]
+    fn test_revert_permute() {
+        let values = [3, 1, 1];
+        let permutation = [1, 2, 0];
+        let target = [1, 3, 1];
+        let reverted = revert_permute(&values, &permutation);
+        compare_slices(&target, &reverted);
     }
 }
