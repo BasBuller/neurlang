@@ -131,8 +131,12 @@ impl Shape {
             .zip(array_index.iter())
             .fold(0, |res, (&lval, &rval)| res + lval * rval)
     }
-    
-    pub fn linear_to_array_index_with_target(&self, linear_index: usize, target_slice: &mut [usize]) {
+
+    pub fn linear_to_array_index_with_target(
+        &self,
+        linear_index: usize,
+        target_slice: &mut [usize],
+    ) {
         let mut counter = linear_index;
         for (target, &size) in target_slice.iter_mut().zip(self.strides.iter()) {
             *target = counter / size;
@@ -143,13 +147,16 @@ impl Shape {
     pub fn linear_to_array_index(&self, linear_index: usize) -> Vec<usize> {
         let mut results = vec![0; self.len()];
         let mut counter = linear_index;
-        results.iter_mut().zip(self.strides.iter()).for_each(|(target, &stride)| {
-            *target = counter / stride;
-            counter = counter % stride;
-        });
+        results
+            .iter_mut()
+            .zip(self.strides.iter())
+            .for_each(|(target, &stride)| {
+                *target = counter / stride;
+                counter = counter % stride;
+            });
         results
     }
-    
+
     pub fn linear_permute_linear(&self, linear_index: usize, permuted_strides: &[usize]) -> usize {
         let mut result = 0;
         let mut counter = linear_index;
@@ -372,9 +379,12 @@ where
         let reverted_permuted_strides = revert_permute(&permuted_shape.strides, &permutation);
 
         let mut results = Vec::with_capacity(cur_values.len());
-        unsafe { results.set_len(cur_values.len()); }
+        unsafe {
+            results.set_len(cur_values.len());
+        }
         for (idx, &value) in cur_values.iter().enumerate() {
-            let permuted_linear_index = shape.linear_permute_linear(idx, &reverted_permuted_strides);
+            let permuted_linear_index =
+                shape.linear_permute_linear(idx, &reverted_permuted_strides);
             results[permuted_linear_index] = value;
         }
 
@@ -465,7 +475,7 @@ where
     fn reduce_sum_v(&self, axis: ReduceAxis) -> Self {
         self.reduce_sum(axis)
     }
-    
+
     // Movement
     fn unsqueeze_v(&self, dim: usize) -> Self {
         self.unsqueeze(dim)
