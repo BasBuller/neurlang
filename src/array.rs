@@ -24,7 +24,7 @@ pub fn rand_f32(shape: &Shape) -> Array<f32> {
 
 impl<T> Array<T>
 where
-    T: Float + std::fmt::Debug + Default,
+    T: Float + std::fmt::Debug + Default + std::iter::Sum,
 {
     // Utils
     pub fn new(values: Vec<T>) -> Self {
@@ -233,6 +233,14 @@ where
     // }
 
     // Higher order ops
+    fn matrix_vector_mul(&self, left_shape: &Shape, vector: &[T]) -> Self {
+        let chunk_size = left_shape.dimensions[left_shape.len()];
+        let res_values = self.values.borrow().chunks(chunk_size).map(|row| {
+            row.iter().zip(vector.iter()).map(|(&l, &r)| l * r).sum()
+        }).collect();
+        Array::new(res_values)
+    }
+
     pub fn matmul(&self, left_shape: &Shape, right_array: &Array<T>, right_shape: &Shape) -> Self {
         self.clone()
     }
@@ -240,7 +248,7 @@ where
 
 impl<T> ExecuteAST<T> for Array<T>
 where
-    T: Float + std::fmt::Debug + Default,
+    T: Float + std::fmt::Debug + Default + std::iter::Sum,
 {
     // Leaf
     fn value_v(&self) -> Self {
