@@ -1,4 +1,4 @@
-use crate::array::Shape;
+use crate::neurlang::Shape;
 
 // //////////////////
 // Slicing

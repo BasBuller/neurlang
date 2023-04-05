@@ -15,7 +15,11 @@ pub fn revert_permute<T: Copy + Default>(permuted_values: &[T], permutation: &[u
     reverted_values
 }
 
-pub fn permute_with_target<T: Copy>(permute_values: &[T], target_slice: &mut [T], permutation: &[usize]) {
+pub fn permute_with_target<T: Copy>(
+    permute_values: &[T],
+    target_slice: &mut [T],
+    permutation: &[usize],
+) {
     for (target, &permute_idx) in target_slice.iter_mut().zip(permutation.iter()) {
         *target = permute_values[permute_idx];
     }
@@ -54,10 +58,7 @@ pub fn linear_to_array_index<const N: usize>(
     results
 }
 
-pub fn array_to_linear_index(
-    array_index: &[usize],
-    strides: &[usize],
-) -> usize {
+pub fn array_to_linear_index(array_index: &[usize], strides: &[usize]) -> usize {
     strides
         .iter()
         .zip(array_index.iter())
@@ -106,11 +107,11 @@ mod tests {
         let target = [2, 1, 4, 3];
         let permuted = permute(&values, &permutation);
         compare_slices(&target, &permuted);
-        
+
         let unpermuted = permute(&permuted, &permutation);
         compare_slices(&values, &unpermuted);
     }
-    
+
     #[test]
     fn test_revert_permute() {
         let values = [3, 1, 1];
