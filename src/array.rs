@@ -1,4 +1,3 @@
-use crate::indexing::*;
 use crate::neurlang::{ExecuteAST, PadAxis, Padding, ReduceAxis, Shape};
 use crate::utils::revert_permute;
 
@@ -234,13 +233,15 @@ where
     }
 
     pub fn matmul(&self, left_shape: &Shape, right_array: &Array<T>, right_shape: &Shape) -> Self {
-        let left_chunk_size = left_shape.dimensions[left_shape.dimensions.len() - 1];
+        let chunk_size = left_shape.dimensions[left_shape.dimensions.len() - 1];
         let right_n_iters: usize = right_shape.dimensions[1..].iter().product();
         let right_shape_flat = Shape::new(vec![right_shape.dimensions[0], right_n_iters]);
+        let right_array_t = right_array.permute(&right_shape_flat, &[1, 0]);
         
         let left_values = self.values.borrow();
-        let res_values = (0..right_n_iters).map(|right_iter| right_array.slice_vector(&right_shape_flat, 1, right_iter)).flat_map(|right_vector| {
-            left_values.chunks(left_chunk_size).map(move |left_vector| {
+        let right_values = right_array_t.values.borrow();
+        let res_values = right_values.chunks(chunk_size).flat_map(|right_vector| {
+            left_values.chunks(chunk_size).map(move |left_vector| {
                 right_vector.iter().zip(left_vector.iter()).map(|(&l, &r)| l * r).sum::<T>()
             })
         }).collect::<Vec<_>>();

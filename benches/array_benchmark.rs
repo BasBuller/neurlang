@@ -154,8 +154,9 @@ fn pad_benchmark(c: &mut Criterion) {
 }
 
 fn matmul_benchmark(c: &mut Criterion) {
-    let (array0, _, shape0) = setup(vec![5000, 5000]);
-    let (array1, _, shape1) = setup(vec![5000, 5000]);
+    let side_len: usize = 512;
+    let (array0, _, shape0) = setup(vec![side_len, side_len]);
+    let (array1, _, shape1) = setup(vec![side_len, side_len]);
 
     c.bench_function("Matmul", |b| b.iter(|| array0.matmul(&shape0, &array1, &shape1)));
 }

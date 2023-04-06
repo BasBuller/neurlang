@@ -2,17 +2,12 @@ use neurlang::array::*;
 use neurlang::neurlang::*;
 
 fn main() {
-    let arr0 = ASTNode::new(
-        Array::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]),
-        Shape::new(vec![2, 3]),
-    );
-    let arr1 = ASTNode::new(
-        Array::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]),
-        Shape::new(vec![2, 3]),
-    );
-    let res = arr0
-        .binary(&arr1, BinaryOp::Add)
-        .unary(UnaryOp::Exponential)
-        .reduce(0, ReduceOp::Sum);
-    println!("{:?}", res);
+    let side_len: usize = 3500;
+    let shape0 = Shape::new(vec![side_len, side_len]);
+    let arr0: Array<f32> = Array::new(vec![0.0; side_len * side_len]);
+    let shape1 = Shape::new(vec![side_len, side_len]);
+    let arr1: Array<f32> = Array::new(vec![0.0; side_len * side_len]);
+    let res = arr0.matmul(&shape0, &arr1, &shape1);
+    let slice = &res.values.borrow()[0..5];
+    println!("{:?}", slice);
 }
