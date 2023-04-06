@@ -153,6 +153,13 @@ fn pad_benchmark(c: &mut Criterion) {
     c.bench_function("Padding", |b| b.iter(|| array.pad(&shape, padding.clone())));
 }
 
+fn matmul_benchmark(c: &mut Criterion) {
+    let (array0, _, shape0) = setup(vec![5000, 5000]);
+    let (array1, _, shape1) = setup(vec![5000, 5000]);
+
+    c.bench_function("Matmul", |b| b.iter(|| array0.matmul(&shape0, &array1, &shape1)));
+}
+
 fn python_compare(c: &mut Criterion) {
     let (_, vec0, _) = setup(vec![5000, 5000]);
     let (_, vec1, _) = setup(vec![5000, 5000]);
@@ -175,5 +182,6 @@ criterion_group!(
     permute_benchmark,
     python_compare,
     pad_benchmark,
+    matmul_benchmark,
 );
 criterion_main!(benches);
