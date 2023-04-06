@@ -234,21 +234,17 @@ where
     }
 
     pub fn matmul(&self, left_shape: &Shape, right_array: &Array<T>, right_shape: &Shape) -> Self {
-        let left_n_iters: usize = left_shape.dimensions[0..(left_shape.len() - 1)].iter().product();
         let left_chunk_size = left_shape.dimensions[left_shape.dimensions.len() - 1];
         let right_n_iters: usize = right_shape.dimensions[1..].iter().product();
         let right_shape_flat = Shape::new(vec![right_shape.dimensions[0], right_n_iters]);
         
         let left_values = self.values.borrow();
-        let mut res_values = Vec::with_capacity(left_n_iters * right_n_iters);
-        for right_iter in 0..right_n_iters {
-            let right_vector = right_array.slice_vector(&right_shape_flat, 1, right_iter);
-            for left_vector in left_values.chunks(left_chunk_size) {
-                let value: T = right_vector.iter().zip(left_vector.iter()).map(|(&l, &r)| l * r).sum();
-                res_values.push(value);
-            }
-        }
-
+        let res_values = (0..right_n_iters).map(|right_iter| right_array.slice_vector(&right_shape_flat, 1, right_iter)).flat_map(|right_vector| {
+            left_values.chunks(left_chunk_size).map(move |left_vector| {
+                right_vector.iter().zip(left_vector.iter()).map(|(&l, &r)| l * r).sum::<T>()
+            })
+        }).collect::<Vec<_>>();
+        
         Array::new(res_values)
     }
 }
