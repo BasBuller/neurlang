@@ -212,25 +212,21 @@ where
         Array::new(new_values)
     }
 
-    // pub fn stride(&self, strides: [usize; N]) -> Self {
-    //     let mut new_dimensions = self.shape.borrow().dimensions.clone();
-    //     for (n_dim, &stride_mul) in new_dimensions.iter_mut().zip(strides.iter()) {
-    //         *n_dim /= stride_mul;
-    //     }
+    pub fn strided(&self, shape: &Shape, strides: &[usize]) -> Self {
+        let strided_shape = shape.strided(strides);
+        let new_shape = Shape::new(strided_shape.dimensions.clone());
+        let new_n_elem = strided_shape.nelem();
+        let values = self.values.borrow();
 
-    //     let mut long_strides = self.shape.borrow().strides.clone();
-    //     for (n_stride, &stride_mul) in long_strides.iter_mut().zip(strides.iter()) {
-    //         *n_stride *= stride_mul;
-    //     }
-    //     let new_n_elem = new_dimensions.iter().product();
-    //     let mut new_values = Vec::with_capacity(new_n_elem);
-    //     for linear_idx in 0..new_n_elem {
-    //         let array_index
-    //     }
-    //     // let new_values =
+        let mut new_values = Vec::with_capacity(new_n_elem);
+        for linear_idx in 0..new_n_elem {
+            let array_index = new_shape.linear_to_array_index(linear_idx);
+            let strided_index = strided_shape.array_to_linear_index(&array_index);
+            new_values.extend_from_slice(&values[strided_index..(strided_index + 1)]);
+        }
 
-    //     Array::new(self.values.borrow().clone(), Shape::new(new_dimensions))
-    // }
+        Array::new(new_values)
+    }
 
     // Higher order ops
     fn matrix_vector_mul(&self, left_shape: &Shape, vector: &[T]) -> Self {
@@ -468,84 +464,19 @@ mod tests {
         ];
         compare_slices(&padded_values.values.borrow(), &target);
     }
-
+    
     #[test]
-    fn shape_strides() {
-        let shape = Shape::new(vec![2, 2, 2]);
-        let target_stride = [4, 2, 1];
-        assert_eq!(shape.strides, target_stride);
-    }
+    fn strides() {
+        let shape = Shape::new(vec![2, 4]);
+        let values = Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+        let strides = [1, 2];
+        let strides_values = values.strided(&shape, &strides);
+        let target_values = vec![1.0, 3.0, 5.0, 7.0];
+        compare_slices(&target_values, &strides_values.values.borrow());
 
-    #[test]
-    fn padding_utilities() {
-        let padding_axes = vec![PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0)];
-        let shape = Shape::new(vec![2, 2]);
-        let padding_helper = Padding::new(padding_axes, &shape);
-        assert_eq!(padding_helper.padded_strides, [4, 1]);
-
-        let padding_axes = vec![PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0)];
-        let shape = Shape::new(vec![1, 1, 1]);
-        let padding_helper = Padding::new(padding_axes, &shape);
-        assert_eq!(padding_helper.padded_strides, [9, 3, 1]);
-    }
-
-    #[test]
-    fn linear_to_array_index() {
-        let shape = Shape::new(vec![2, 2, 2]);
-
-        let res = shape.linear_to_array_index(0);
-        let target = [0, 0, 0];
-        assert_eq!(res, target);
-
-        let res = shape.linear_to_array_index(1);
-        let target = [0, 0, 1];
-        assert_eq!(res, target);
-
-        let res = shape.linear_to_array_index(2);
-        let target = [0, 1, 0];
-        assert_eq!(res, target);
-
-        let res = shape.linear_to_array_index(3);
-        let target = [0, 1, 1];
-        assert_eq!(res, target);
-
-        let res = shape.linear_to_array_index(4);
-        let target = [1, 0, 0];
-        assert_eq!(res, target);
-
-        let res = shape.linear_to_array_index(5);
-        let target = [1, 0, 1];
-        assert_eq!(res, target);
-
-        let res = shape.linear_to_array_index(6);
-        let target = [1, 1, 0];
-        assert_eq!(res, target);
-
-        let res = shape.linear_to_array_index(7);
-        let target = [1, 1, 1];
-        assert_eq!(res, target);
-    }
-
-    #[test]
-    fn array_to_linear_index() {
-        let shape = Shape::new(vec![1, 2, 3]);
-
-        let res = shape.array_to_linear_index(&[0, 0, 0]);
-        assert_eq!(res, 0);
-
-        let res = shape.array_to_linear_index(&[0, 0, 1]);
-        assert_eq!(res, 1);
-
-        let res = shape.array_to_linear_index(&[0, 0, 2]);
-        assert_eq!(res, 2);
-
-        let res = shape.array_to_linear_index(&[0, 1, 0]);
-        assert_eq!(res, 3);
-
-        let res = shape.array_to_linear_index(&[0, 1, 1]);
-        assert_eq!(res, 4);
-
-        let res = shape.array_to_linear_index(&[0, 1, 2]);
-        assert_eq!(res, 5);
+        let strides = [2, 1];
+        let strides_values = values.strided(&shape, &strides);
+        let target_values = vec![1.0, 2.0, 3.0, 4.0];
+        compare_slices(&target_values, &strides_values.values.borrow());
     }
 }

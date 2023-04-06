@@ -164,6 +164,23 @@ impl Shape {
         }
         result
     }
+    
+    pub fn strided(&self, strides: &[usize]) -> Self {
+        let mut new_dimensions = self.dimensions.clone();
+        for (n_dim, &stride_mul) in new_dimensions.iter_mut().zip(strides.iter()) {
+            *n_dim /= stride_mul;
+        }
+
+        let mut new_strides = self.strides.clone();
+        for (n_stride, &stride_mul) in new_strides.iter_mut().zip(strides.iter()) {
+            *n_stride *= stride_mul;
+        }
+        
+        Shape {
+            dimensions: new_dimensions,
+            strides: new_strides,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -519,6 +536,101 @@ mod tests {
 
     #[test]
     fn array_to_linear_index() {
+        let shape = Shape::new(vec![1, 2, 3]);
+
+        let res = shape.array_to_linear_index(&[0, 0, 0]);
+        assert_eq!(res, 0);
+
+        let res = shape.array_to_linear_index(&[0, 0, 1]);
+        assert_eq!(res, 1);
+
+        let res = shape.array_to_linear_index(&[0, 0, 2]);
+        assert_eq!(res, 2);
+
+        let res = shape.array_to_linear_index(&[0, 1, 0]);
+        assert_eq!(res, 3);
+
+        let res = shape.array_to_linear_index(&[0, 1, 1]);
+        assert_eq!(res, 4);
+
+        let res = shape.array_to_linear_index(&[0, 1, 2]);
+        assert_eq!(res, 5);
+    }
+    
+    #[test]
+    fn test_shape_strides() {
+        let shape = Shape::new(vec![512, 512]);
+        let strides = [2, 1];
+        let strided_shape = shape.strided(&strides);
+        let target_stride = [1024, 1];
+        assert_eq!(strided_shape.strides, target_stride);
+        let target_dimensions = [256, 512];
+        assert_eq!(strided_shape.dimensions, target_dimensions);
+        
+        let strides = [1, 2];
+        let strided_shape = shape.strided(&strides);
+        let target_stride = [512, 2];
+        assert_eq!(strided_shape.strides, target_stride);
+        let target_dimensions = [512, 256];
+        assert_eq!(strided_shape.dimensions, target_dimensions);
+
+        let shape = Shape::new(vec![2, 2, 2]);
+        let target_stride = [4, 2, 1];
+        assert_eq!(shape.strides, target_stride);
+    }
+
+    #[test]
+    fn test_padding_utilities() {
+        let padding_axes = vec![PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0)];
+        let shape = Shape::new(vec![2, 2]);
+        let padding_helper = Padding::new(padding_axes, &shape);
+        assert_eq!(padding_helper.padded_strides, [4, 1]);
+
+        let padding_axes = vec![PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0)];
+        let shape = Shape::new(vec![1, 1, 1]);
+        let padding_helper = Padding::new(padding_axes, &shape);
+        assert_eq!(padding_helper.padded_strides, [9, 3, 1]);
+    }
+
+    #[test]
+    fn test_linear_to_array_index() {
+        let shape = Shape::new(vec![2, 2, 2]);
+
+        let res = shape.linear_to_array_index(0);
+        let target = [0, 0, 0];
+        assert_eq!(res, target);
+
+        let res = shape.linear_to_array_index(1);
+        let target = [0, 0, 1];
+        assert_eq!(res, target);
+
+        let res = shape.linear_to_array_index(2);
+        let target = [0, 1, 0];
+        assert_eq!(res, target);
+
+        let res = shape.linear_to_array_index(3);
+        let target = [0, 1, 1];
+        assert_eq!(res, target);
+
+        let res = shape.linear_to_array_index(4);
+        let target = [1, 0, 0];
+        assert_eq!(res, target);
+
+        let res = shape.linear_to_array_index(5);
+        let target = [1, 0, 1];
+        assert_eq!(res, target);
+
+        let res = shape.linear_to_array_index(6);
+        let target = [1, 1, 0];
+        assert_eq!(res, target);
+
+        let res = shape.linear_to_array_index(7);
+        let target = [1, 1, 1];
+        assert_eq!(res, target);
+    }
+
+    #[test]
+    fn test_array_to_linear_index() {
         let shape = Shape::new(vec![1, 2, 3]);
 
         let res = shape.array_to_linear_index(&[0, 0, 0]);
