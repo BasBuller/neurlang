@@ -114,14 +114,19 @@ where
 
     // Axis reducing operations
     fn slice_vector(&self, shape: &Shape, axis: usize, index: usize) -> Vec<T> {
-        let array = self.values.borrow();
-        let slice_iter = make_slice(shape, axis, index).into_iter();
-        let mut res_values = Vec::with_capacity(slice_iter.n_prefix * slice_iter.n_suffix);
-        for (start_idx, end_idx) in slice_iter {
-            res_values.extend_from_slice(&array[start_idx..end_idx]);
+        let values = self.values.borrow();
+        let n_prefix_items: usize = shape.dimensions[0..axis].iter().product();
+        let axis_stride: usize  = shape.dimensions[axis..].iter().product();
+        let suffix_stride: usize = shape.dimensions[(axis + 1)..].iter().product();
+
+        let mut slice_values = Vec::with_capacity(n_prefix_items * suffix_stride);
+        for prefix_idx in 0..n_prefix_items {
+            let src_start_idx = prefix_idx * axis_stride + index * suffix_stride;
+            let src_end_idx = src_start_idx + suffix_stride;
+            slice_values.extend_from_slice(&values[src_start_idx..src_end_idx]);
         }
 
-        res_values
+        slice_values
     }
 
     pub fn slice(&self, shape: &Shape, axis: usize, index: usize) -> Array<T> {
@@ -350,17 +355,17 @@ mod tests {
         let shape = Shape::new(vec![2, 2, 2]);
         let arr = Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
 
-        let arr0 = arr.slice(&shape, 0, 0);
+        let arr0 = arr.slice_vector(&shape, 0, 0);
         let target0: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0];
-        compare_slices(&target0, &arr0.values.borrow());
+        compare_slices(&target0, &arr0);
 
-        let arr1 = arr.slice(&shape, 1, 0);
+        let arr1 = arr.slice_vector(&shape, 1, 0);
         let target1: Vec<f32> = vec![1.0, 2.0, 5.0, 6.0];
-        compare_slices(&target1, &arr1.values.borrow());
+        compare_slices(&target1, &arr1);
 
-        let arr2 = arr.slice(&shape, 2, 0);
+        let arr2 = arr.slice_vector(&shape, 2, 0);
         let target2: Vec<f32> = vec![1.0, 3.0, 5.0, 7.0];
-        compare_slices(&target2, &arr2.values.borrow());
+        compare_slices(&target2, &arr2);
     }
 
     #[test]

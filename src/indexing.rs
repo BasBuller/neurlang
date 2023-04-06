@@ -18,7 +18,7 @@ pub struct SliceIterator {
     pub n_prefix: usize,
     pub n_axis_suffix: usize,
     pub n_suffix: usize,
-    pub index: usize,
+    pub index_offset: usize,
     prefix_idx: usize,
 }
 
@@ -37,7 +37,7 @@ impl<'a> IntoIterator for Slice<'a> {
             prefix_idx: 0,
             n_axis_suffix: n_axis_suffix,
             n_suffix: n_suffix,
-            index: self.index,
+            index_offset: self.index * n_suffix,
         }
     }
 }
@@ -47,7 +47,7 @@ impl Iterator for SliceIterator {
     fn next(&mut self) -> Option<Self::Item> {
         if self.prefix_idx < self.n_prefix {
             let src_start_idx =
-                (self.prefix_idx * self.n_axis_suffix) + (self.index * self.n_suffix);
+                (self.prefix_idx * self.n_axis_suffix) + self.index_offset;
             let src_end_idx = src_start_idx + self.n_suffix;
             self.prefix_idx += 1;
             Some((src_start_idx, src_end_idx))
