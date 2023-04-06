@@ -233,17 +233,23 @@ where
         Array::new(new_values)
     }
 
-    // Higher order ops
-    fn matrix_vector_mul(&self, left_shape: &Shape, vector: &[T]) -> Self {
-        let chunk_size = left_shape.dimensions[left_shape.len()];
-        let res_values = self.values.borrow().chunks(chunk_size).map(|row| {
-            row.iter().zip(vector.iter()).map(|(&l, &r)| l * r).sum()
-        }).collect();
-        Array::new(res_values)
-    }
-
     pub fn matmul(&self, left_shape: &Shape, right_array: &Array<T>, right_shape: &Shape) -> Self {
-        self.clone()
+        let left_n_iters: usize = left_shape.dimensions[0..(left_shape.len() - 1)].iter().product();
+        let left_chunk_size = left_shape.dimensions[left_shape.dimensions.len() - 1];
+        let right_n_iters: usize = right_shape.dimensions[1..].iter().product();
+        let right_shape_flat = Shape::new(vec![right_shape.dimensions[0], right_n_iters]);
+        
+        let left_values = self.values.borrow();
+        let mut res_values = Vec::with_capacity(left_n_iters * right_n_iters);
+        for right_iter in 0..right_n_iters {
+            let right_vector = right_array.slice_vector(&right_shape_flat, 1, right_iter);
+            for left_vector in left_values.chunks(left_chunk_size) {
+                let value: T = right_vector.iter().zip(left_vector.iter()).map(|(&l, &r)| l * r).sum();
+                res_values.push(value);
+            }
+        }
+
+        Array::new(res_values)
     }
 }
 
