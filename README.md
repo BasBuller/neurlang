@@ -1,45 +1,22 @@
-## How to enable reduce operations
-The following is necessary to properly perform a reduction:
-- Stride - The number of elements between two elements in the reduction dimension. This is the number of elements to go from item n in the first dim to item n+1, also **product of the dimension sizes except for the first dimension**.
-- Offset - The index of the first item in the target dimension within the first row, also **product of the dimension sizes for dimensions that come after the reduce dimension**.
+# Neurlang - Have fun exploring how linear algebra libraries are implemented while building something cool
+Much of the research in accelerated linear algebra and deep learning frameworks is focussed on enabling ever larger models on increasingly more hardware of increasing complexity. Whereas the models coming out of this process are amazing, it is far from accessible or practical if you do not have a huge pile of cash to burn, read pretty much everyone.
 
-## How to implement matrix vector multiplication
-Most effective way to think about a Matrix is as a linear function:
-    $$f: R^{n} \rightarrow R^{m} \newline Matrix(f) = R^{m} \times R^{n}$$
-    
-When performing matrix multiplication you ideally want to iterate over the **rows of the left matrix** and iterate over the **columns of the right matrix**. This means the left preferably is *row major* and the right matrix is *column major*.
-
-## Ideas for implementations
-- Can I express the ideal array configurations for an operation as **constraints on the arrays**? Like using a trait bound on the left and right arrays for matrix multiplication that they have row and column major memory layouts respectively? Or maybe it's just as attribute of an object and my program is free to optimize over different options for the attribute, ie an enum. 
-    - The Same way of adding constraints can be done for binary ops like addition, where the arrays need the same memory layouts.
-    - By defining these traits at my AST level I can implement them for each different type of accelerator, ie CPU, GPU1, GPU2, my own custom chip, ...
-    - These relations/constraints can be very well captured in a domain-specific mathematical language, this is exactly what category theory excels at. Would be very cool to have a form of mathematical reasoning enabling me to highly optimize my ASTs. I probably do need an estimate of the cost of specific attribute combinations in order to turn graph refinement into a proper optimization problem.
-
-## To Do's
-- [x] Update Shape implementation used in Array
-- [x] Implement very first version of expand
-    - [x] Improve expand performance by preventing a copy, did so by enabling a Rc around the backing array
-- [x] Implement reshape
-    - [ ] Improve the assertions of the reshape operation to make sure the dimensions are properly split/collapsed
-- [x] Implement permute, the naive version to understand how it works
-    - [x] Improve into a performant version by using my slice iterators instead of collecting intermediate results into vectors. Can likely do so in the following way:
-        1. Chain iterators for reading all the slices from the original array.
-            - Might be able to use __enumerate__ to slice into a slice properly!
-            - However, seems more likely that an efficient index operator the allows for slices will work better. This way I can have an iterator type that goes through the backing memory just once, and hence does not need to allocate much intermediate memory.
-        2. Collect the resulting slices into a new vector only once
-- [x] Move to const generics shape?
-- [x] Implement array padding
-    - [ ] Optimize the padding function by joining dimensions that are not padded into previous dimensions, that way increasing chunk size and reducing the number of memory operations
-- [ ] Make a different Shape type for the Graph tracing, and retain the current one for the Array
-- [ ] Greatly improve tensor indexing code quality
-- [ ] Make the array Shape describe how the memory representation is, whereas in my NeurlangAST keep track of what the desired shape is.
-- [ ] Implement matmul in pure Rust
-- [ ] Enable BLAS matmul
-- [ ] Maybe I need to implement the tensorproduct like in Numpy? That enables essentially all types of tensor operations
-    - This probably is nothing more than a generalization of matmul - ie dot product over the last and first dimension of two tensors. Implementing this efficiently is most likely a matter of reshaping and combining axes in a smart way.
-    - If done properly this can also be rather speedy, because I can write logic to reason about how to optimize the iteration
-
-### When implement column major ordering, if at all?
-- [ ] Enable slicing in column major arrays by taking $array_len - row_major_indexer$
-- [ ] Implement conversion between row and column major storage formats
-    - [x] Implement indexing and then simply create an indices iterator
+A non-exhaustive and very rough list of reasons why this project exists:
+- Most importantly, have fun and learn about the wildly interesting landscape of computation focussed on ML applications, both for large data centers and on device!
+- Trace computational graph to allow for optimizations
+    - Maybe, one day, make graph tracing JIT, allowing for lazy optimizations yet a dynamic experience
+- CPU first, followed by mobile platforms
+    - Little interest in enabling CUDA for now, given the bazillion alternatives
+- Focus on experimentation with new compute and ML paradigms, not being another generic DL framework. If that's what you're looking for, have a look at PyTorch, Jax, Tinygrad, dfdx...
+- Some paradigms I would like to explore one day:
+    - Very sparse neural networks
+    - Asynchronous and distributed training and inference
+    - Run and train on widely available comodity hardware
+    - Spiking neural networks
+    - Lazy computational graph optimization
+    - Blur the line between high performance numerical computing and general purposing computing
+- Desire and inspiration to experiment with distributed training on heterogeneous chips comes from the following systems:
+    - [Pathways](https://arxiv.org/abs/2203.12533), Google their propietary (and experimental?) distributed and asynchronous trainig framework. Find this reall exciting and hope to do some work towards this.
+    - [Ray](https://docs.ray.io/en/latest/train/train.html), but instead build everything in one language instead of creating a runtime on top of existing DL frameworks
+    - [LLama.cpp](https://github.com/ggerganov/llama.cpp), seeing large models move to on-device is a really big thing. This is the first step towards everyone having access to their own personal AIs, running on commodity hardware, adjusting to your personal needs, and working with your private data without sending it off to a third party.
+- Be cool an use Rust. Jokes aside, it's in interesting language that lends itself well to a high-performance and distributed application like this
