@@ -46,8 +46,7 @@ impl Iterator for SliceIterator {
     type Item = (usize, usize);
     fn next(&mut self) -> Option<Self::Item> {
         if self.prefix_idx < self.n_prefix {
-            let src_start_idx =
-                (self.prefix_idx * self.n_axis_suffix) + self.index_offset;
+            let src_start_idx = (self.prefix_idx * self.n_axis_suffix) + self.index_offset;
             let src_end_idx = src_start_idx + self.n_suffix;
             self.prefix_idx += 1;
             Some((src_start_idx, src_end_idx))

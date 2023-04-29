@@ -131,14 +131,20 @@ fn slice_benchmark(c: &mut Criterion) {
 fn reduce_benchmark(c: &mut Criterion) {
     let (array0, _, shape) = setup(vec![128, 512, 1024]);
 
-    c.bench_function("Sum array dim", |b| b.iter(|| array0.reduce_sum_arr(&shape, 1)));
-    c.bench_function("Max array dim", |b| b.iter(|| array0.reduce_max_arr(&shape, 1)));
+    c.bench_function("Sum array dim", |b| {
+        b.iter(|| array0.reduce_sum_arr(&shape, 1))
+    });
+    c.bench_function("Max array dim", |b| {
+        b.iter(|| array0.reduce_max_arr(&shape, 1))
+    });
 }
 
 fn squeeze_unsqueeze_benchmark(c: &mut Criterion) {
     let (array, _, shape) = setup(vec![1024, 2048, 1]);
 
-    c.bench_function("Unsqueeze array", |b| b.iter(|| array.unsqueeze_arr(&shape, 3)));
+    c.bench_function("Unsqueeze array", |b| {
+        b.iter(|| array.unsqueeze_arr(&shape, 3))
+    });
     c.bench_function("Squeeze array", |b| b.iter(|| array.squeeze_arr(&shape, 2)));
 }
 
@@ -150,7 +156,9 @@ fn permute_benchmark(c: &mut Criterion) {
 fn pad_benchmark(c: &mut Criterion) {
     let (array, _, shape) = setup(vec![5000, 5000]);
     let padding = vec![PadAxis(2, 2, 0.0), PadAxis(2, 2, 0.0)];
-    c.bench_function("Padding", |b| b.iter(|| array.pad_arr(&shape, padding.clone())));
+    c.bench_function("Padding", |b| {
+        b.iter(|| array.pad_arr(&shape, padding.clone()))
+    });
 }
 
 fn matmul_benchmark(c: &mut Criterion) {
@@ -158,7 +166,9 @@ fn matmul_benchmark(c: &mut Criterion) {
     let (array0, _, shape0) = setup(vec![side_len, side_len]);
     let (array1, _, shape1) = setup(vec![side_len, side_len]);
 
-    c.bench_function("Matmul", |b| b.iter(|| array0.matmul_arr(&shape0, &array1, &shape1)));
+    c.bench_function("Matmul", |b| {
+        b.iter(|| array0.matmul_arr(&shape0, &array1, &shape1))
+    });
 }
 
 fn python_compare(c: &mut Criterion) {

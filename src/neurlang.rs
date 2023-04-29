@@ -45,8 +45,8 @@ impl<T: Clone + Copy> Padding<T> {
                 *size = *size + prefix_count + suffix_count
             },
         );
-        let mut padded_strides = vec![1; shape.len()];
-        for idx in 1..shape.len() {
+        let mut padded_strides = vec![1; shape.ndim()];
+        for idx in 1..shape.ndim() {
             padded_strides[idx - 1] = padded_sizes[idx..].iter().fold(1, |res, &val| res * val);
         }
         Padding {
@@ -111,7 +111,8 @@ impl Shape {
         Shape::new(new_dimensions)
     }
 
-    pub fn len(&self) -> usize {
+    /// Number of dimensions
+    pub fn ndim(&self) -> usize {
         self.dimensions.len()
     }
 
@@ -139,7 +140,7 @@ impl Shape {
     }
 
     pub fn linear_to_array_index(&self, linear_index: usize) -> Vec<usize> {
-        let mut results = vec![0; self.len()];
+        let mut results = vec![0; self.ndim()];
         let mut counter = linear_index;
         results
             .iter_mut()
@@ -164,7 +165,7 @@ impl Shape {
         }
         result
     }
-    
+
     pub fn strided(&self, strides: &[usize]) -> Self {
         let mut new_dimensions = self.dimensions.clone();
         for (n_dim, &stride_mul) in new_dimensions.iter_mut().zip(strides.iter()) {
@@ -175,7 +176,7 @@ impl Shape {
         for (n_stride, &stride_mul) in new_strides.iter_mut().zip(strides.iter()) {
             *n_stride *= stride_mul;
         }
-        
+
         Shape {
             dimensions: new_dimensions,
             strides: new_strides,
@@ -234,6 +235,13 @@ pub enum ASTOp<F: Clone, T: ExecuteAST<F>> {
         op: ReduceOp,
     },
 
+    // Called matmul for now, might change to something like tensordot
+    Tensordot {
+        left_value: Rc<ASTNode<F, T>>,
+        right_value: Rc<ASTNode<F, T>>,
+        n_axes: usize,
+    },
+
     // Movement ops, these are separate from the rest because they do not have consistent inputs
     Unsqueeze {
         value: Rc<ASTNode<F, T>>,
@@ -264,8 +272,8 @@ pub enum ASTOp<F: Clone, T: ExecuteAST<F>> {
 
 #[derive(Debug)]
 pub struct ASTNode<F: Clone, T: ExecuteAST<F>> {
-    op: ASTOp<F, T>,
-    shape: Shape,
+    pub op: ASTOp<F, T>,
+    pub shape: Shape,
 }
 
 impl<F: Clone, T: ExecuteAST<F>> ASTNode<F, T> {
@@ -305,13 +313,41 @@ impl<F: Clone, T: ExecuteAST<F>> ASTNode<F, T> {
         })
     }
 
+    // Tensordot based functions
+    pub fn tensordot(
+        self: &Rc<Self>,
+        right_value: &Rc<ASTNode<F, T>>,
+        n_axes: usize,
+    ) -> Rc<ASTNode<F, T>> {
+        assert!(
+            self.shape.dimensions[self.shape.ndim() - 1] == right_value.shape.dimensions[0],
+            "Last dimension of left array and first dimension of right array do not match",
+        );
+        assert!(n_axes == 1, "Currently only support tensordot over 1 dimension, so simply matmul");
+
+        let new_dims = [
+            &self.shape.dimensions[0..self.shape.ndim() - 1],
+            &right_value.shape.dimensions[1..],
+        ]
+        .concat();
+        let new_shape = Shape::new(new_dims);
+        Rc::new(ASTNode {
+            op: ASTOp::Tensordot {
+                left_value: self.clone(),
+                right_value: right_value.clone(),
+                n_axes: n_axes,
+            },
+            shape: new_shape,
+        })
+    }
+
     // Reduce
     pub fn reduce(self: &Rc<Self>, dim: ReduceAxis, op: ReduceOp) -> Rc<ASTNode<F, T>> {
         assert!(
-            self.shape.len() >= dim,
+            self.shape.ndim() >= dim,
             "Axis {} not in tensor of dimensions {}",
             dim,
-            self.shape.len()
+            self.shape.ndim()
         );
 
         let new_shape = self.shape.remove(dim);
@@ -415,6 +451,15 @@ impl<F: Clone, T: ExecuteAST<F>> ASTNode<F, T> {
                     BinaryOp::Max => left_value.max(&right_value),
                 }
             }
+            ASTOp::Tensordot {
+                left_value,
+                right_value,
+                n_axes,
+            } => {
+                let left_array = left_value.execute();
+                let right_array = right_value.execute();
+                left_array.matmul(&left_value.shape, &right_array, &right_value.shape)
+            }
             ASTOp::Reduce { value, dim, op } => {
                 let array = value.execute();
                 match op {
@@ -424,12 +469,8 @@ impl<F: Clone, T: ExecuteAST<F>> ASTNode<F, T> {
             }
             ASTOp::Unsqueeze { value, dim } => value.execute().unsqueeze(&value.shape, *dim),
             ASTOp::Squeeze { value, dim } => value.execute().squeeze(&value.shape, *dim),
-            ASTOp::Reshape { value, new_shape } => {
-                value.execute().reshape(&value.shape, new_shape)
-            }
-            ASTOp::Permute { value, dim_order } => {
-                value.execute().permute(&value.shape, dim_order)
-            }
+            ASTOp::Reshape { value, new_shape } => value.execute().reshape(&value.shape, new_shape),
+            ASTOp::Permute { value, dim_order } => value.execute().permute(&value.shape, dim_order),
             ASTOp::Pad {
                 value,
                 axes_padding,
@@ -556,7 +597,7 @@ mod tests {
         let res = shape.array_to_linear_index(&[0, 1, 2]);
         assert_eq!(res, 5);
     }
-    
+
     #[test]
     fn test_shape_strides() {
         let shape = Shape::new(vec![512, 512]);
@@ -566,7 +607,7 @@ mod tests {
         assert_eq!(strided_shape.strides, target_stride);
         let target_dimensions = [256, 512];
         assert_eq!(strided_shape.dimensions, target_dimensions);
-        
+
         let strides = [1, 2];
         let strided_shape = shape.strided(&strides);
         let target_stride = [512, 2];

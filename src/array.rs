@@ -115,7 +115,7 @@ where
     fn slice_vector(&self, shape: &Shape, axis: usize, index: usize) -> Vec<T> {
         let values = self.values.borrow();
         let n_prefix_items: usize = shape.dimensions[0..axis].iter().product();
-        let axis_stride: usize  = shape.dimensions[axis..].iter().product();
+        let axis_stride: usize = shape.dimensions[axis..].iter().product();
         let suffix_stride: usize = shape.dimensions[(axis + 1)..].iter().product();
 
         let mut slice_values = Vec::with_capacity(n_prefix_items * suffix_stride);
@@ -232,20 +232,32 @@ where
         Array::new(new_values)
     }
 
-    pub fn matmul_arr(&self, left_shape: &Shape, right_array: &Array<T>, right_shape: &Shape) -> Self {
+    pub fn matmul_arr(
+        &self,
+        left_shape: &Shape,
+        right_array: &Array<T>,
+        right_shape: &Shape,
+    ) -> Self {
         let chunk_size = left_shape.dimensions[left_shape.dimensions.len() - 1];
         let right_n_iters: usize = right_shape.dimensions[1..].iter().product();
         let right_shape_flat = Shape::new(vec![right_shape.dimensions[0], right_n_iters]);
         let right_array_t = right_array.permute_arr(&right_shape_flat, &[1, 0]);
-        
+
         let left_values = self.values.borrow();
         let right_values = right_array_t.values.borrow();
-        let res_values = right_values.chunks(chunk_size).flat_map(|right_vector| {
-            left_values.chunks(chunk_size).map(move |left_vector| {
-                right_vector.iter().zip(left_vector.iter()).map(|(&l, &r)| l * r).sum::<T>()
+        let res_values = right_values
+            .chunks(chunk_size)
+            .flat_map(|right_vector| {
+                left_values.chunks(chunk_size).map(move |left_vector| {
+                    right_vector
+                        .iter()
+                        .zip(left_vector.iter())
+                        .map(|(&l, &r)| l * r)
+                        .sum::<T>()
+                })
             })
-        }).collect::<Vec<_>>();
-        
+            .collect::<Vec<_>>();
+
         Array::new(res_values)
     }
 }
@@ -472,7 +484,7 @@ mod tests {
         ];
         compare_slices(&padded_values.values.borrow(), &target);
     }
-    
+
     #[test]
     fn strides() {
         let shape = Shape::new(vec![2, 4]);
