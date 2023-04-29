@@ -1,7 +1,11 @@
 # Neurlang - Have fun exploring how linear algebra libraries are implemented while building something cool
 Much of the research in accelerated linear algebra and deep learning frameworks is focussed on enabling ever larger models on increasingly more hardware of increasing complexity. Whereas the models coming out of this process are amazing, it is far from accessible or practical if you do not have a huge pile of cash to burn, read pretty much everyone.
 
-A non-exhaustive and very rough list of reasons why this project exists:
+## Features (as far as they are implemented)
+- Computational graph is constructed ahead of execution time. This allows for shape checking without having to run intensive compute. It also sets us up for implementing graph optimisations. Inspired by how Jax & Tensorflow operate, and as of recently PyTorch 2.0.
+- Only rely on a small number of base operations, inspired by Tinygrad. Currently very unoptimised Rust implementations are available.
+
+## A non-exhaustive and very rough list of reasons why this project exists:
 - Most importantly, have fun and learn about the wildly interesting landscape of computation focussed on ML applications, both for large data centers and on device!
 - Trace computational graph to allow for optimizations
     - Maybe, one day, make graph tracing JIT, allowing for lazy optimizations yet a dynamic experience
