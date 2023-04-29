@@ -8,6 +8,7 @@ A non-exhaustive and very rough list of reasons why this project exists:
 - CPU first, followed by mobile platforms
     - Little interest in enabling CUDA for now, given the bazillion alternatives
 - Focus on experimentation with new compute and ML paradigms, not being another generic DL framework. If that's what you're looking for, have a look at PyTorch, Jax, Tinygrad, dfdx...
+    - Does not mean I am not taking inspiration from those, think of a JIT compiler or the bare minimal number of ops like using in Tinygrad.
 - Some paradigms I would like to explore one day:
     - Very sparse neural networks
     - Asynchronous and distributed training and inference

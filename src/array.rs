@@ -43,13 +43,13 @@ where
         let iterated = self.values.borrow().iter().map(unary_f).collect::<Vec<_>>();
         Self::new(iterated)
     }
-    pub fn negate(&self) -> Self {
+    pub fn negate_arr(&self) -> Self {
         self.unary_op(|&value| -value)
     }
-    pub fn exp(&self) -> Self {
+    pub fn exp_arr(&self) -> Self {
         self.unary_op(|value| value.exp())
     }
-    pub fn ln(&self) -> Self {
+    pub fn ln_arr(&self) -> Self {
         self.unary_op(|value| value.ln())
     }
 
@@ -83,28 +83,28 @@ where
             .collect::<Vec<_>>();
         Self::new(res_values)
     }
-    pub fn add(&self, right_array: &Self) -> Self {
+    pub fn add_arr(&self, right_array: &Self) -> Self {
         self.binary_op(right_array, |(&lval, &rval)| lval + rval)
     }
-    pub fn sub(&self, right_array: &Self) -> Self {
+    pub fn sub_arr(&self, right_array: &Self) -> Self {
         self.binary_op(right_array, |(&lval, &rval)| lval - rval)
     }
-    pub fn multiply(&self, right_array: &Self) -> Self {
+    pub fn multiply_arr(&self, right_array: &Self) -> Self {
         self.binary_op(right_array, |(&lval, &rval)| lval * rval)
     }
-    pub fn divide(&self, right_array: &Self) -> Self {
+    pub fn divide_arr(&self, right_array: &Self) -> Self {
         self.binary_op(right_array, |(&lval, &rval)| lval / rval)
     }
-    pub fn pow(&self, right_array: &Self) -> Self {
+    pub fn pow_arr(&self, right_array: &Self) -> Self {
         self.binary_op(right_array, |(&lval, &rval)| lval.powf(rval))
     }
-    pub fn compare_equal(&self, right_array: &Self) -> Self {
+    pub fn compare_equal_arr(&self, right_array: &Self) -> Self {
         self.binary_op(
             right_array,
             |(&lval, &rval)| if lval == rval { T::one() } else { T::zero() },
         )
     }
-    pub fn max(&self, right_array: &Self) -> Self {
+    pub fn max_arr(&self, right_array: &Self) -> Self {
         self.binary_op(
             right_array,
             |(&lval, &rval)| if lval > rval { lval } else { rval },
@@ -163,12 +163,12 @@ where
         Array::new(res_values)
     }
 
-    pub fn reduce_sum(&self, shape: &Shape, axis: usize) -> Array<T> {
+    pub fn reduce_sum_arr(&self, shape: &Shape, axis: usize) -> Array<T> {
         self.reduce(shape, axis, |(res_val, src_val)| {
             *res_val = *res_val + *src_val
         })
     }
-    pub fn reduce_max(&self, shape: &Shape, axis: usize) -> Array<T> {
+    pub fn reduce_max_arr(&self, shape: &Shape, axis: usize) -> Array<T> {
         self.reduce(shape, axis, |(res_val, src_val)| {
             *res_val = if *res_val > *src_val {
                 *res_val
@@ -179,18 +179,18 @@ where
     }
 
     // Movement ops
-    pub fn unsqueeze(&self, shape: &Shape, axis: usize) -> Array<T> {
+    pub fn unsqueeze_arr(&self, shape: &Shape, axis: usize) -> Array<T> {
         Array::reference(self.values.clone())
     }
-    pub fn squeeze(&self, shape: &Shape, axis: usize) -> Array<T> {
-        Array::reference(self.values.clone())
-    }
-
-    pub fn reshape(&self, shape: &Shape, new_shape: &[usize]) -> Array<T> {
+    pub fn squeeze_arr(&self, shape: &Shape, axis: usize) -> Array<T> {
         Array::reference(self.values.clone())
     }
 
-    pub fn permute(&self, shape: &Shape, permutation: &[usize]) -> Self {
+    pub fn reshape_arr(&self, shape: &Shape, new_shape: &[usize]) -> Array<T> {
+        Array::reference(self.values.clone())
+    }
+
+    pub fn permute_arr(&self, shape: &Shape, permutation: &[usize]) -> Self {
         let cur_values = self.values.borrow();
         let permuted_shape = shape.permute(permutation);
         let reverted_permuted_strides = revert_permute(&permuted_shape.strides, permutation);
@@ -208,7 +208,7 @@ where
         Self::new(results)
     }
 
-    pub fn pad(&self, shape: &Shape, axes_padding: Vec<PadAxis<T>>) -> Self {
+    pub fn pad_arr(&self, shape: &Shape, axes_padding: Vec<PadAxis<T>>) -> Self {
         let padding_helper = Padding::new(axes_padding, shape);
         let new_nelem = padding_helper.padded_sizes.iter().product();
         let mut new_values = Vec::with_capacity(new_nelem);
@@ -232,11 +232,11 @@ where
         Array::new(new_values)
     }
 
-    pub fn matmul(&self, left_shape: &Shape, right_array: &Array<T>, right_shape: &Shape) -> Self {
+    pub fn matmul_arr(&self, left_shape: &Shape, right_array: &Array<T>, right_shape: &Shape) -> Self {
         let chunk_size = left_shape.dimensions[left_shape.dimensions.len() - 1];
         let right_n_iters: usize = right_shape.dimensions[1..].iter().product();
         let right_shape_flat = Shape::new(vec![right_shape.dimensions[0], right_n_iters]);
-        let right_array_t = right_array.permute(&right_shape_flat, &[1, 0]);
+        let right_array_t = right_array.permute_arr(&right_shape_flat, &[1, 0]);
         
         let left_values = self.values.borrow();
         let right_values = right_array_t.values.borrow();
@@ -255,72 +255,72 @@ where
     T: Float + std::fmt::Debug + Default + std::iter::Sum,
 {
     // Leaf
-    fn value_ast(&self) -> Self {
+    fn value(&self) -> Self {
         self.clone()
     }
 
     // Unary
-    fn negate_ast(&self) -> Self {
-        self.negate()
+    fn negate(&self) -> Self {
+        self.negate_arr()
     }
-    fn exp_ast(&self) -> Self {
-        self.exp()
+    fn exp(&self) -> Self {
+        self.exp_arr()
     }
-    fn log_ast(&self) -> Self {
-        self.ln()
+    fn log(&self) -> Self {
+        self.ln_arr()
     }
 
     // Binary
-    fn add_ast(&self, right_value: &Self) -> Self {
-        self.add(right_value)
+    fn add(&self, right_value: &Self) -> Self {
+        self.add_arr(right_value)
     }
-    fn sub_ast(&self, right_value: &Self) -> Self {
-        self.sub(right_value)
+    fn sub(&self, right_value: &Self) -> Self {
+        self.sub_arr(right_value)
     }
-    fn mul_ast(&self, right_value: &Self) -> Self {
-        self.multiply(right_value)
+    fn mul(&self, right_value: &Self) -> Self {
+        self.multiply_arr(right_value)
     }
-    fn div_ast(&self, right_value: &Self) -> Self {
-        self.divide(right_value)
+    fn div(&self, right_value: &Self) -> Self {
+        self.divide_arr(right_value)
     }
-    fn pow_ast(&self, right_value: &Self) -> Self {
-        self.pow(right_value)
+    fn pow(&self, right_value: &Self) -> Self {
+        self.pow_arr(right_value)
     }
-    fn compare_equal_ast(&self, right_value: &Self) -> Self {
-        self.compare_equal(right_value)
+    fn compare_equal(&self, right_value: &Self) -> Self {
+        self.compare_equal_arr(right_value)
     }
-    fn max_ast(&self, right_value: &Self) -> Self {
-        self.max(right_value)
+    fn max(&self, right_value: &Self) -> Self {
+        self.max_arr(right_value)
     }
 
     // Reduce
-    fn reduce_max_ast(&self, shape: &Shape, axis: ReduceAxis) -> Self {
-        self.reduce_max(shape, axis)
+    fn reduce_max(&self, shape: &Shape, axis: ReduceAxis) -> Self {
+        self.reduce_max_arr(shape, axis)
     }
-    fn reduce_sum_ast(&self, shape: &Shape, axis: ReduceAxis) -> Self {
-        self.reduce_sum(shape, axis)
+    fn reduce_sum(&self, shape: &Shape, axis: ReduceAxis) -> Self {
+        self.reduce_sum_arr(shape, axis)
     }
 
     // Movement
-    fn unsqueeze_ast(&self, shape: &Shape, dim: usize) -> Self {
-        self.unsqueeze(shape, dim)
+    fn unsqueeze(&self, shape: &Shape, dim: usize) -> Self {
+        self.unsqueeze_arr(shape, dim)
     }
-    fn squeeze_ast(&self, shape: &Shape, dim: usize) -> Self {
-        self.squeeze(shape, dim)
+    fn squeeze(&self, shape: &Shape, dim: usize) -> Self {
+        self.squeeze_arr(shape, dim)
     }
-    fn reshape_ast(&self, shape: &Shape, new_shape: &[usize]) -> Self {
-        self.reshape(shape, new_shape)
+    fn reshape(&self, shape: &Shape, new_shape: &[usize]) -> Self {
+        self.reshape_arr(shape, new_shape)
     }
-    fn permute_ast(&self, shape: &Shape, axis_ordering: &[usize]) -> Self {
-        self.permute(shape, axis_ordering)
+    fn permute(&self, shape: &Shape, axis_ordering: &[usize]) -> Self {
+        self.permute_arr(shape, axis_ordering)
     }
-    fn pad_ast(&self, shape: &Shape, axes_padding: Vec<PadAxis<T>>) -> Self {
-        self.pad(shape, axes_padding)
+    fn pad(&self, shape: &Shape, axes_padding: Vec<PadAxis<T>>) -> Self {
+        self.pad_arr(shape, axes_padding)
     }
 
     // Higher order
-    fn matmul_ast(&self, left_shape: &Shape, right_value: &Self, right_shape: &Shape) -> Self {
-        self.matmul(left_shape, right_value, right_shape)
+    fn matmul(&self, left_shape: &Shape, right_value: &Self, right_shape: &Shape) -> Self {
+        self.matmul_arr(left_shape, right_value, right_shape)
     }
 }
 
@@ -340,7 +340,7 @@ mod tests {
     #[test]
     fn negate() {
         let target: Vec<f32> = vec![-1.0, -2.0, -3.0];
-        let arr1 = Array::<f32>::new(vec![1.0, 2.0, 3.0]).negate();
+        let arr1 = Array::<f32>::new(vec![1.0, 2.0, 3.0]).negate_arr();
         compare_slices(&target, &arr1.values.borrow());
     }
 
@@ -349,7 +349,7 @@ mod tests {
         let target: Vec<f32> = vec![5.0, 7.0, 9.0];
         let arr1 = Array::<f32>::new(vec![1.0, 2.0, 3.0]);
         let arr2 = Array::<f32>::new(vec![4.0, 5.0, 6.0]);
-        let arr3 = arr1.add(&arr2);
+        let arr3 = arr1.add_arr(&arr2);
         compare_slices(&target, &arr3.values.borrow());
     }
 
@@ -376,15 +376,15 @@ mod tests {
         let shape = Shape::new(vec![2, 2, 2]);
         let arr = Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
 
-        let arr0 = arr.reduce_sum(&shape, 0);
+        let arr0 = arr.reduce_sum_arr(&shape, 0);
         let target0: Vec<f32> = vec![6.0, 8.0, 10.0, 12.0];
         compare_slices(&target0, &arr0.values.borrow());
 
-        let arr1 = arr.reduce_sum(&shape, 1);
+        let arr1 = arr.reduce_sum_arr(&shape, 1);
         let target1: Vec<f32> = vec![4.0, 6.0, 12.0, 14.0];
         compare_slices(&target1, &arr1.values.borrow());
 
-        let arr2 = arr.reduce_sum(&shape, 2);
+        let arr2 = arr.reduce_sum_arr(&shape, 2);
         let target2: Vec<f32> = vec![3.0, 7.0, 11.0, 15.0];
         compare_slices(&target2, &arr2.values.borrow());
     }
@@ -394,15 +394,15 @@ mod tests {
         let shape = Shape::new(vec![2, 2, 2]);
         let arr = Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
 
-        let arr0 = arr.reduce_max(&shape, 0);
+        let arr0 = arr.reduce_max_arr(&shape, 0);
         let target0: Vec<f32> = vec![5.0, 6.0, 7.0, 8.0];
         compare_slices(&target0, &arr0.values.borrow());
 
-        let arr1 = arr.reduce_max(&shape, 1);
+        let arr1 = arr.reduce_max_arr(&shape, 1);
         let target1: Vec<f32> = vec![3.0, 4.0, 7.0, 8.0];
         compare_slices(&target1, &arr1.values.borrow());
 
-        let arr2 = arr.reduce_max(&shape, 2);
+        let arr2 = arr.reduce_max_arr(&shape, 2);
         let target2: Vec<f32> = vec![2.0, 4.0, 6.0, 8.0];
         compare_slices(&target2, &arr2.values.borrow());
     }
@@ -413,7 +413,7 @@ mod tests {
         let l_arr = Array::<f32>::new(vec![2.0; 6]);
         let r_shape = Shape::new(vec![3, 4]);
         let r_arr = Array::<f32>::new(vec![3.0; 12]);
-        let res = l_arr.matmul(&l_shape, &r_arr, &r_shape);
+        let res = l_arr.matmul_arr(&l_shape, &r_arr, &r_shape);
         let target_values = vec![18.0; 8];
         compare_slices(&target_values, &res.values.borrow());
     }
@@ -422,31 +422,31 @@ mod tests {
     fn permute() {
         let shape = Shape::new(vec![2, 2]);
         let values = Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0]);
-        let new_values = values.permute(&shape, &[1, 0]);
+        let new_values = values.permute_arr(&shape, &[1, 0]);
         let target = vec![1.0, 3.0, 2.0, 4.0];
         compare_slices(&target, &new_values.values.borrow());
 
         let shape = Shape::new(vec![2, 2, 2]);
         let values = Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
-        let new_values = values.permute(&shape, &[1, 0, 2]);
+        let new_values = values.permute_arr(&shape, &[1, 0, 2]);
         let target = vec![1.0, 2.0, 5.0, 6.0, 3.0, 4.0, 7.0, 8.0];
         compare_slices(&target, &new_values.values.borrow());
 
         let shape = Shape::new(vec![2, 2, 2]);
         let values = Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
-        let new_values = values.permute(&shape, &[2, 1, 0]);
+        let new_values = values.permute_arr(&shape, &[2, 1, 0]);
         let target = vec![1.0, 5.0, 3.0, 7.0, 2.0, 6.0, 4.0, 8.0];
         compare_slices(&target, &new_values.values.borrow());
 
         let shape = Shape::new(vec![2, 2]);
         let values = Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0]);
-        let new_values = values.permute(&shape, &[1, 0]);
+        let new_values = values.permute_arr(&shape, &[1, 0]);
         let target = vec![1.0, 3.0, 2.0, 4.0];
         compare_slices(&target, &new_values.values.borrow());
 
         let shape = Shape::new(vec![1, 2, 3]);
         let values = Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
-        let new_values = values.permute(&shape, &[1, 2, 0]);
+        let new_values = values.permute_arr(&shape, &[1, 2, 0]);
         let target = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
         compare_slices(&target, &new_values.values.borrow());
     }
@@ -456,7 +456,7 @@ mod tests {
         let shape = Shape::new(vec![2, 2]);
         let values = Array::<f32>::new(vec![1.0, 2.0, 3.0, 4.0]);
         let padding = vec![PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0)];
-        let padded_values = values.pad(&shape, padding);
+        let padded_values = values.pad_arr(&shape, padding);
         let target = vec![
             0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 2.0, 0.0, 0.0, 3.0, 4.0, 0.0, 0.0, 0.0, 0.0, 0.0,
         ];
@@ -465,7 +465,7 @@ mod tests {
         let shape = Shape::new(vec![1, 1, 1]);
         let values = Array::<f32>::new(vec![1.0]);
         let padding = vec![PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0), PadAxis(1, 1, 0.0)];
-        let padded_values = values.pad(&shape, padding);
+        let padded_values = values.pad_arr(&shape, padding);
         let target = vec![
             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,

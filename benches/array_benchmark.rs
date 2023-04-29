@@ -62,7 +62,7 @@ fn negate_benchmark(c: &mut Criterion) {
     let (array, mut vec, _) = setup(shape);
 
     let mut group = c.benchmark_group("Negate new object");
-    group.bench_function("Array", |b| b.iter(|| array.negate()));
+    group.bench_function("Array", |b| b.iter(|| array.negate_arr()));
     group.bench_function("Vector", |b| b.iter(|| negate(&vec)));
     group.finish();
 
@@ -76,7 +76,7 @@ fn exp_benchmark(c: &mut Criterion) {
     let (array, mut vec, _) = setup(vec![5000, 5000]);
 
     let mut group = c.benchmark_group("Exponate new object");
-    group.bench_function("Array", |b| b.iter(|| array.exp()));
+    group.bench_function("Array", |b| b.iter(|| array.exp_arr()));
     group.bench_function("Vector", |b| b.iter(|| exp(&vec)));
     group.finish();
 
@@ -90,7 +90,7 @@ fn ln_benchmark(c: &mut Criterion) {
     let (array, mut vec, _) = setup(vec![5000, 5000]);
 
     let mut group = c.benchmark_group("Natural logarithm new object");
-    group.bench_function("Array", |b| b.iter(|| array.ln()));
+    group.bench_function("Array", |b| b.iter(|| array.ln_arr()));
     group.bench_function("Vector", |b| b.iter(|| ln(&vec)));
     group.finish();
 
@@ -105,7 +105,7 @@ fn add_benchmark(c: &mut Criterion) {
     let (array1, vec1, _) = setup(vec![5000, 5000]);
 
     let mut group = c.benchmark_group("Add");
-    group.bench_function("Array", |b| b.iter(|| array0.add(&array1)));
+    group.bench_function("Array", |b| b.iter(|| array0.add_arr(&array1)));
     group.bench_function("Vector", |b| {
         b.iter(|| binary_op(&vec0, &vec1, |(&lval, &rval)| lval + rval))
     });
@@ -116,7 +116,7 @@ fn multiply_benchmark(c: &mut Criterion) {
     let (array1, vec1, _) = setup(vec![5000, 5000]);
 
     let mut group = c.benchmark_group("Multiply");
-    group.bench_function("Array", |b| b.iter(|| array0.multiply(&array1)));
+    group.bench_function("Array", |b| b.iter(|| array0.multiply_arr(&array1)));
     group.bench_function("Vector", |b| {
         b.iter(|| binary_op(&vec0, &vec1, |(&lval, &rval)| lval * rval))
     });
@@ -131,26 +131,26 @@ fn slice_benchmark(c: &mut Criterion) {
 fn reduce_benchmark(c: &mut Criterion) {
     let (array0, _, shape) = setup(vec![128, 512, 1024]);
 
-    c.bench_function("Sum array dim", |b| b.iter(|| array0.reduce_sum(&shape, 1)));
-    c.bench_function("Max array dim", |b| b.iter(|| array0.reduce_max(&shape, 1)));
+    c.bench_function("Sum array dim", |b| b.iter(|| array0.reduce_sum_arr(&shape, 1)));
+    c.bench_function("Max array dim", |b| b.iter(|| array0.reduce_max_arr(&shape, 1)));
 }
 
 fn squeeze_unsqueeze_benchmark(c: &mut Criterion) {
     let (array, _, shape) = setup(vec![1024, 2048, 1]);
 
-    c.bench_function("Unsqueeze array", |b| b.iter(|| array.unsqueeze(&shape, 3)));
-    c.bench_function("Squeeze array", |b| b.iter(|| array.squeeze(&shape, 2)));
+    c.bench_function("Unsqueeze array", |b| b.iter(|| array.unsqueeze_arr(&shape, 3)));
+    c.bench_function("Squeeze array", |b| b.iter(|| array.squeeze_arr(&shape, 2)));
 }
 
 fn permute_benchmark(c: &mut Criterion) {
     let (array, _, shape) = setup(vec![5000, 5000]);
-    c.bench_function("Permute", |b| b.iter(|| array.permute(&shape, &[1, 0])));
+    c.bench_function("Permute", |b| b.iter(|| array.permute_arr(&shape, &[1, 0])));
 }
 
 fn pad_benchmark(c: &mut Criterion) {
     let (array, _, shape) = setup(vec![5000, 5000]);
     let padding = vec![PadAxis(2, 2, 0.0), PadAxis(2, 2, 0.0)];
-    c.bench_function("Padding", |b| b.iter(|| array.pad(&shape, padding.clone())));
+    c.bench_function("Padding", |b| b.iter(|| array.pad_arr(&shape, padding.clone())));
 }
 
 fn matmul_benchmark(c: &mut Criterion) {
@@ -158,7 +158,7 @@ fn matmul_benchmark(c: &mut Criterion) {
     let (array0, _, shape0) = setup(vec![side_len, side_len]);
     let (array1, _, shape1) = setup(vec![side_len, side_len]);
 
-    c.bench_function("Matmul", |b| b.iter(|| array0.matmul(&shape0, &array1, &shape1)));
+    c.bench_function("Matmul", |b| b.iter(|| array0.matmul_arr(&shape0, &array1, &shape1)));
 }
 
 fn python_compare(c: &mut Criterion) {
