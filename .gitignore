@@ -3,3 +3,4 @@ perf.data*
 .vscode/*
 notes.md
 todo.md
+benchmark.py
