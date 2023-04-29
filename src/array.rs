@@ -255,71 +255,71 @@ where
     T: Float + std::fmt::Debug + Default + std::iter::Sum,
 {
     // Leaf
-    fn value_v(&self) -> Self {
+    fn value_ast(&self) -> Self {
         self.clone()
     }
 
     // Unary
-    fn negate_v(&self) -> Self {
+    fn negate_ast(&self) -> Self {
         self.negate()
     }
-    fn exp_v(&self) -> Self {
+    fn exp_ast(&self) -> Self {
         self.exp()
     }
-    fn log_v(&self) -> Self {
+    fn log_ast(&self) -> Self {
         self.ln()
     }
 
     // Binary
-    fn add_v(&self, right_value: &Self) -> Self {
+    fn add_ast(&self, right_value: &Self) -> Self {
         self.add(right_value)
     }
-    fn sub_v(&self, right_value: &Self) -> Self {
+    fn sub_ast(&self, right_value: &Self) -> Self {
         self.sub(right_value)
     }
-    fn mul_v(&self, right_value: &Self) -> Self {
+    fn mul_ast(&self, right_value: &Self) -> Self {
         self.multiply(right_value)
     }
-    fn div_v(&self, right_value: &Self) -> Self {
+    fn div_ast(&self, right_value: &Self) -> Self {
         self.divide(right_value)
     }
-    fn pow_v(&self, right_value: &Self) -> Self {
+    fn pow_ast(&self, right_value: &Self) -> Self {
         self.pow(right_value)
     }
-    fn compare_equal_v(&self, right_value: &Self) -> Self {
+    fn compare_equal_ast(&self, right_value: &Self) -> Self {
         self.compare_equal(right_value)
     }
-    fn max_v(&self, right_value: &Self) -> Self {
+    fn max_ast(&self, right_value: &Self) -> Self {
         self.max(right_value)
     }
 
     // Reduce
-    fn reduce_max_v(&self, shape: &Shape, axis: ReduceAxis) -> Self {
+    fn reduce_max_ast(&self, shape: &Shape, axis: ReduceAxis) -> Self {
         self.reduce_max(shape, axis)
     }
-    fn reduce_sum_v(&self, shape: &Shape, axis: ReduceAxis) -> Self {
+    fn reduce_sum_ast(&self, shape: &Shape, axis: ReduceAxis) -> Self {
         self.reduce_sum(shape, axis)
     }
 
     // Movement
-    fn unsqueeze_v(&self, shape: &Shape, dim: usize) -> Self {
+    fn unsqueeze_ast(&self, shape: &Shape, dim: usize) -> Self {
         self.unsqueeze(shape, dim)
     }
-    fn squeeze_v(&self, shape: &Shape, dim: usize) -> Self {
+    fn squeeze_ast(&self, shape: &Shape, dim: usize) -> Self {
         self.squeeze(shape, dim)
     }
-    fn reshape_v(&self, shape: &Shape, new_shape: &[usize]) -> Self {
+    fn reshape_ast(&self, shape: &Shape, new_shape: &[usize]) -> Self {
         self.reshape(shape, new_shape)
     }
-    fn permute_v(&self, shape: &Shape, axis_ordering: &[usize]) -> Self {
+    fn permute_ast(&self, shape: &Shape, axis_ordering: &[usize]) -> Self {
         self.permute(shape, axis_ordering)
     }
-    fn pad_v(&self, shape: &Shape, axes_padding: Vec<PadAxis<T>>) -> Self {
+    fn pad_ast(&self, shape: &Shape, axes_padding: Vec<PadAxis<T>>) -> Self {
         self.pad(shape, axes_padding)
     }
 
     // Higher order
-    fn matmul_v(&self, left_shape: &Shape, right_value: &Self, right_shape: &Shape) -> Self {
+    fn matmul_ast(&self, left_shape: &Shape, right_value: &Self, right_shape: &Shape) -> Self {
         self.matmul(left_shape, right_value, right_shape)
     }
 }

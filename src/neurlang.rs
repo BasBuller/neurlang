@@ -389,13 +389,13 @@ impl<F: Clone, T: ExecuteAST<F>> ASTNode<F, T> {
     }
     pub fn execute(&self) -> T {
         match &self.op {
-            ASTOp::Value { value } => value.value_v(),
+            ASTOp::Value { value } => value.value_ast(),
             ASTOp::Unary { value, op } => {
                 let value = value.execute();
                 match op {
-                    UnaryOp::Negate => value.negate_v(),
-                    UnaryOp::Exponential => value.exp_v(),
-                    UnaryOp::Log => value.log_v(),
+                    UnaryOp::Negate => value.negate_ast(),
+                    UnaryOp::Exponential => value.exp_ast(),
+                    UnaryOp::Log => value.log_ast(),
                 }
             }
             ASTOp::Binary {
@@ -406,70 +406,70 @@ impl<F: Clone, T: ExecuteAST<F>> ASTNode<F, T> {
                 let left_value = left_value.execute();
                 let right_value = right_value.execute();
                 match op {
-                    BinaryOp::Add => left_value.add_v(&right_value),
-                    BinaryOp::Sub => left_value.sub_v(&right_value),
-                    BinaryOp::Mul => left_value.mul_v(&right_value),
-                    BinaryOp::Div => left_value.div_v(&right_value),
-                    BinaryOp::Pow => left_value.pow_v(&right_value),
-                    BinaryOp::CompareEqual => left_value.compare_equal_v(&right_value),
-                    BinaryOp::Max => left_value.max_v(&right_value),
+                    BinaryOp::Add => left_value.add_ast(&right_value),
+                    BinaryOp::Sub => left_value.sub_ast(&right_value),
+                    BinaryOp::Mul => left_value.mul_ast(&right_value),
+                    BinaryOp::Div => left_value.div_ast(&right_value),
+                    BinaryOp::Pow => left_value.pow_ast(&right_value),
+                    BinaryOp::CompareEqual => left_value.compare_equal_ast(&right_value),
+                    BinaryOp::Max => left_value.max_ast(&right_value),
                 }
             }
             ASTOp::Reduce { value, dim, op } => {
                 let array = value.execute();
                 match op {
-                    ReduceOp::Sum => array.reduce_sum_v(&value.shape, *dim),
-                    ReduceOp::Max => array.reduce_max_v(&value.shape, *dim),
+                    ReduceOp::Sum => array.reduce_sum_ast(&value.shape, *dim),
+                    ReduceOp::Max => array.reduce_max_ast(&value.shape, *dim),
                 }
             }
-            ASTOp::Unsqueeze { value, dim } => value.execute().unsqueeze_v(&value.shape, *dim),
-            ASTOp::Squeeze { value, dim } => value.execute().squeeze_v(&value.shape, *dim),
+            ASTOp::Unsqueeze { value, dim } => value.execute().unsqueeze_ast(&value.shape, *dim),
+            ASTOp::Squeeze { value, dim } => value.execute().squeeze_ast(&value.shape, *dim),
             ASTOp::Reshape { value, new_shape } => {
-                value.execute().reshape_v(&value.shape, new_shape)
+                value.execute().reshape_ast(&value.shape, new_shape)
             }
             ASTOp::Permute { value, dim_order } => {
-                value.execute().permute_v(&value.shape, dim_order)
+                value.execute().permute_ast(&value.shape, dim_order)
             }
             ASTOp::Pad {
                 value,
                 axes_padding,
-            } => value.execute().pad_v(&value.shape, (*axes_padding).clone()),
+            } => value.execute().pad_ast(&value.shape, (*axes_padding).clone()),
         }
     }
 }
 
 pub trait ExecuteAST<F: Clone> {
     // Leaf
-    fn value_v(&self) -> Self;
+    fn value_ast(&self) -> Self;
 
     // Unary
-    fn negate_v(&self) -> Self;
-    fn exp_v(&self) -> Self;
-    fn log_v(&self) -> Self;
+    fn negate_ast(&self) -> Self;
+    fn exp_ast(&self) -> Self;
+    fn log_ast(&self) -> Self;
 
     // Binary
-    fn add_v(&self, right_value: &Self) -> Self;
-    fn sub_v(&self, right_value: &Self) -> Self;
-    fn mul_v(&self, right_value: &Self) -> Self;
-    fn div_v(&self, right_value: &Self) -> Self;
-    fn pow_v(&self, right_value: &Self) -> Self;
-    fn compare_equal_v(&self, right_value: &Self) -> Self;
-    fn max_v(&self, right_value: &Self) -> Self;
+    fn add_ast(&self, right_value: &Self) -> Self;
+    fn sub_ast(&self, right_value: &Self) -> Self;
+    fn mul_ast(&self, right_value: &Self) -> Self;
+    fn div_ast(&self, right_value: &Self) -> Self;
+    fn pow_ast(&self, right_value: &Self) -> Self;
+    fn compare_equal_ast(&self, right_value: &Self) -> Self;
+    fn max_ast(&self, right_value: &Self) -> Self;
 
     // Reduce
-    fn reduce_max_v(&self, shape: &Shape, axis: ReduceAxis) -> Self;
-    fn reduce_sum_v(&self, shape: &Shape, axis: ReduceAxis) -> Self;
+    fn reduce_max_ast(&self, shape: &Shape, axis: ReduceAxis) -> Self;
+    fn reduce_sum_ast(&self, shape: &Shape, axis: ReduceAxis) -> Self;
 
     // // Movement ops
-    fn unsqueeze_v(&self, shape: &Shape, dim: usize) -> Self;
-    fn squeeze_v(&self, shape: &Shape, dim: usize) -> Self;
-    fn reshape_v(&self, shape: &Shape, new_shape: &[usize]) -> Self;
-    fn permute_v(&self, shape: &Shape, axis_ordering: &[usize]) -> Self;
-    fn pad_v(&self, shape: &Shape, axes_padding: Vec<PadAxis<F>>) -> Self;
+    fn unsqueeze_ast(&self, shape: &Shape, dim: usize) -> Self;
+    fn squeeze_ast(&self, shape: &Shape, dim: usize) -> Self;
+    fn reshape_ast(&self, shape: &Shape, new_shape: &[usize]) -> Self;
+    fn permute_ast(&self, shape: &Shape, axis_ordering: &[usize]) -> Self;
+    fn pad_ast(&self, shape: &Shape, axes_padding: Vec<PadAxis<F>>) -> Self;
     // fn stride_v(&self, ...) -> Self;
 
     // Higher order
-    fn matmul_v(&self, left_shape: &Shape, right_value: &Self, right_shape: &Shape) -> Self;
+    fn matmul_ast(&self, left_shape: &Shape, right_value: &Self, right_shape: &Shape) -> Self;
     // fn tensordot_v(&self, right_value: &Self, left_axes: &[usize], right_axes: &[usize]) -> Self;
 }
 
