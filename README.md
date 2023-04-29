@@ -5,6 +5,32 @@ Much of the research in accelerated linear algebra and deep learning frameworks 
 - Computational graph is constructed ahead of execution time. This allows for shape checking without having to run intensive compute. It also sets us up for implementing graph optimisations. Inspired by how Jax & Tensorflow operate, and as of recently PyTorch 2.0.
 - Only rely on a small number of base operations, inspired by Tinygrad. Currently very unoptimised Rust implementations are available.
 
+## Very basic example
+```rust
+use neurlang::array::Array;
+use neurlang::neurlang::{ASTNode, Shape, BinaryOp};
+
+fn main() {
+    let weight_matrix = ASTNode::new(
+        Array::new((1..16).map(|x| x as f32).collect::<Vec<_>>()),
+        Shape::new(vec![3, 5]),
+    );
+    let bias_vec = ASTNode::new(
+        Array::new(vec![1.0, 1.0, 1.0]),
+        Shape::new(vec![3]),
+    );
+    let inputs = ASTNode::new(
+        Array::new(vec![1.0, 2.0, 3.0, 4.0, 5.0]),
+        Shape::new(vec![5]),
+    );
+
+    let results_ast = weight_matrix
+        .tensordot(&inputs, 1)
+        .binary(&bias_vec, BinaryOp::Add);
+    let results = results_ast.execute();
+}
+```
+
 ## A non-exhaustive and very rough list of reasons why this project exists:
 - Most importantly, have fun and learn about the wildly interesting landscape of computation focussed on ML applications, both for large data centers and on device!
 - Trace computational graph to allow for optimizations
