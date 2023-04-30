@@ -1,5 +1,5 @@
-use neurlang::array::{Array, rand_f32};
-use neurlang::neurlang::{ASTNode, Shape, BinaryOp};
+use neurlang::array::{rand_f32, Array};
+use neurlang::neurlang::{ASTNode, BinaryOp, Shape};
 
 fn main() {
     let weight_matrix = ASTNode::new(

@@ -3,6 +3,7 @@ use neurlang::neurlang::{PadAxis, Shape};
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use num::Float;
+use rayon::prelude::*;
 
 // Some reference implementations
 pub fn negate_arr_raw<const N: usize>(values: &[f32; N], target: &mut [f32; N]) {
@@ -180,6 +181,18 @@ fn python_compare(c: &mut Criterion) {
     });
 }
 
+fn rayon_benchmark(c: &mut Criterion) {
+    let vec0: Vec<f32> = vec![1.0; 5000 * 5000];
+
+    let mut group = c.benchmark_group("Rayon");
+    group.bench_function("no parallel", |b| {
+        b.iter(|| vec0.iter().map(|&x| x * 2.0).collect::<Vec<_>>())
+    });
+    group.bench_function("parallel", |b| {
+        b.iter(|| vec0.par_iter().map(|&x| x * 2.0).collect::<Vec<_>>())
+    });
+}
+
 criterion_group!(
     benches,
     negate_benchmark,
@@ -194,5 +207,6 @@ criterion_group!(
     python_compare,
     pad_benchmark,
     matmul_benchmark,
+    rayon_benchmark,
 );
 criterion_main!(benches);

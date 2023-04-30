@@ -323,7 +323,10 @@ impl<F: Clone, T: ExecuteAST<F>> ASTNode<F, T> {
             self.shape.dimensions[self.shape.ndim() - 1] == right_value.shape.dimensions[0],
             "Last dimension of left array and first dimension of right array do not match",
         );
-        assert!(n_axes == 1, "Currently only support tensordot over 1 dimension, so simply matmul");
+        assert!(
+            n_axes == 1,
+            "Currently only support tensordot over 1 dimension, so simply matmul"
+        );
 
         let new_dims = [
             &self.shape.dimensions[0..self.shape.ndim() - 1],
