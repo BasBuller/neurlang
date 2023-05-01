@@ -35,6 +35,7 @@ fn main() {
 - Most importantly, have fun and learn about the wildly interesting landscape of computation focussed on ML applications, both for large data centers and on device!
 - Trace computational graph to allow for optimizations
     - Maybe, one day, make graph tracing JIT, allowing for lazy optimizations yet a dynamic experience
+    - See if I can implement something similar to the broadcasting operator like in Julia and Matlab, ie vector .+ 5
 - CPU first, followed by mobile platforms
     - Little interest in enabling CUDA for now, given the bazillion alternatives
 - Focus on experimentation with new compute and ML paradigms, not being another generic DL framework. If that's what you're looking for, have a look at PyTorch, Jax, Tinygrad, dfdx...
